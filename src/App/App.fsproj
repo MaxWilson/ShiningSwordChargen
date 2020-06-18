@@ -4,7 +4,13 @@
 	<LangVersion>preview</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="App.fs" />
+	<MyriadSdkGenerator Include="$(MSBuildThisFileDirectory)\..\Myriadic\bin\Debug\netstandard2.1\Myriadic.dll" />
+	<Compile Include="Domain\Model.fs" />
+	<Compile Include="Domain\Generated.fs">
+	  <MyriadFile>Domain\Model.fs</MyriadFile>
+	  <MyriadNameSpace>Gen</MyriadNameSpace>
+	</Compile>
+	<Compile Include="App.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
   <ItemGroup>
@@ -18,5 +24,12 @@
     <PackageReference Include="Feliz.Bulma.QuickView" Version="1.0.1" />
     <PackageReference Include="Feliz.Bulma.Switch" Version="1.0.0" />
     <PackageReference Include="Thoth.Json" Version="4.1.0" />
+	<PackageReference Include="Myriad.Core" Version="0.2.8" />
+	<PackageReference Include="Myriad.Plugins" Version="0.2.8" />
+	<PackageReference Include="Myriad.Sdk" Version="0.2.8" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Lib\Lib.fsproj" />
+    <ProjectReference Include="..\Myriadic\Myriadic.fsproj" />
   </ItemGroup>
 </Project>

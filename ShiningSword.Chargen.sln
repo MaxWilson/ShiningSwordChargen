@@ -5,6 +5,10 @@ VisualStudioVersion = 16.0.30028.174
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "App", "src\App\App.fsproj", "{0A977004-D99D-4D8A-BA5C-5FB973D9EF46}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Lib", "src\Lib\Lib.fsproj", "{6B4DBB46-8149-4920-8BFC-4730282F7C17}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Myriadic", "src\Myriadic\Myriadic.fsproj", "{632EE4B9-C9F4-43A5-A5AA-DA5C49C5FE45}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +19,14 @@ Global
 		{0A977004-D99D-4D8A-BA5C-5FB973D9EF46}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0A977004-D99D-4D8A-BA5C-5FB973D9EF46}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0A977004-D99D-4D8A-BA5C-5FB973D9EF46}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6B4DBB46-8149-4920-8BFC-4730282F7C17}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6B4DBB46-8149-4920-8BFC-4730282F7C17}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6B4DBB46-8149-4920-8BFC-4730282F7C17}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6B4DBB46-8149-4920-8BFC-4730282F7C17}.Release|Any CPU.Build.0 = Release|Any CPU
+		{632EE4B9-C9F4-43A5-A5AA-DA5C49C5FE45}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{632EE4B9-C9F4-43A5-A5AA-DA5C49C5FE45}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{632EE4B9-C9F4-43A5-A5AA-DA5C49C5FE45}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{632EE4B9-C9F4-43A5-A5AA-DA5C49C5FE45}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
