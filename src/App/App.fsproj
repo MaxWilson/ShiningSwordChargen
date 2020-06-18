@@ -6,10 +6,14 @@
   <ItemGroup>
 	<MyriadSdkGenerator Include="$(MSBuildThisFileDirectory)\..\Myriadic\bin\Debug\netstandard2.1\Myriadic.dll" />
 	<Compile Include="Domain\Model.fs" />
-	<Compile Include="Domain\Generated.fs">
+	<Compile Include="Domain\AutoGen.fs">
 	  <MyriadFile>Domain\Model.fs</MyriadFile>
-	  <MyriadNameSpace>Gen</MyriadNameSpace>
+	  <MyriadNameSpace>Domain</MyriadNameSpace>
 	</Compile>
+	<Compile Include="Domain\Gen.fs" />
+	<Compile Include="Domain\Common.fs" />
+	<Compile Include="Domain\Chargen.fs" />
+	<None Include="Domain\Script1.fsx" />
 	<Compile Include="App.fs" />
     <Compile Include="Main.fs" />
   </ItemGroup>
