@@ -1,4 +1,4 @@
-module Main
+module UI.Main
 
 open Elmish
 open Elmish.React

@@ -9,6 +9,10 @@ module Generator =
 open Myriadic
 open Myriad.Plugins
 #endif
+
+[<Generator.DuCases>]
+type Stat = Str | Dex | Con | Int | Wis | Cha
+
 [<Generator.Lenses>]
 type Stats = {
     str: int

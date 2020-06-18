@@ -1,27 +1,27 @@
-﻿module App
+﻿module UI.App
 
+open UI
 open Elmish
 open Fable.SimpleHttp
 open Thoth.Json
 open Feliz
+open Feliz.Bulma
 
-type UI = {
-    txt: string
-    }
-type Msg =
-    | Update of transform: (UI -> UI)
-
-let init _ = { txt = "" }, Cmd.Empty
+let init _ = { stats = None }, Cmd.Empty
 let update msg model =
     match msg with
     | Update t ->
         (t model), Cmd.Empty
 
 let view model dispatch =
-    Html.div [
+    Bulma.section [
         prop.className "content"
         prop.children [
-            Html.h1 "Hello"
-            Html.div "world"
+            Bulma.content [
+                UI.Chargen.view {
+                        stats = UI.stats_
+                        updateCmd = UI.Update >> dispatch
+                    } model
+                ]
             ]
         ]
