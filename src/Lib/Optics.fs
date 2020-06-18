@@ -102,3 +102,6 @@ let inline prism (get: 'state -> 'value option) (set: 'value -> 'state -> 'state
 
 let fst_() = lens fst (fun v st -> v, snd st)
 let snd_() = lens snd (fun v st -> fst st, v)
+
+let list_ n =
+    lens (List.item n) (fun v d -> d |> List.mapi (fun i x -> if i = n then v else x))
