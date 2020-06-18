@@ -31,5 +31,6 @@
   <ItemGroup>
     <ProjectReference Include="..\Lib\Lib.fsproj" />
     <ProjectReference Include="..\Myriadic\Myriadic.fsproj" />
+    <PackageReference Update="FSharp.Core" Version="4.7.2" />
   </ItemGroup>
 </Project>
