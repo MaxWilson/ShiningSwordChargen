@@ -18,3 +18,8 @@ let reassign ((p1, p2, p3, p4, p5, p6) as priorityRankings) ({ str = v1; dex = v
     let statsInOrder = [| v1; v2; v3; v4; v5; v6 |] |> Array.sortDescending |> Array.mapi (fun i v -> write lenses.[i] v)
     statsInOrder |> Array.fold (fun s t -> t s) stats
 
+let standardArray() =
+  let lenses = [|str_;dex_; con_; int_; wis_; cha_|] |> shuffleCopy
+  let statsInOrder = [| 15; 14; 13; 12; 10; 8 |] |> Array.sortDescending |> Array.mapi (fun i v -> write lenses.[i] v)
+  statsInOrder |> Array.fold (fun s t -> t s) { str = 0; dex = 0; con = 0; int = 0; wis = 0; cha = 0 }
+

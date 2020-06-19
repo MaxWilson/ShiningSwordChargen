@@ -4,7 +4,7 @@ open Domain.Model
 
 [<Generator.Lenses>]
 type UI = {
-    stats: Stats option
+    chargen: UI.Chargen.State
     }
 
 type Msg =

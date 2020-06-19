@@ -13,6 +13,6 @@ namespace rec UI
 module UI =
     open UI
 
-    let stats_ =
-        Optics.lens (fun (data: UI) -> data.stats) (fun (value: Domain.Model.Stats option) (data: UI) ->
-            { data with stats = value })
+    let chargen_ =
+        Optics.lens (fun (data: UI) -> data.chargen) (fun (value: UI.Chargen.State) (data: UI) ->
+            { data with chargen = value })
