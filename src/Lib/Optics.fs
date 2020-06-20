@@ -7,15 +7,15 @@ type 't OpticInput = 't -> 't OpticResult // in practice will either be a reader
 type OpticOutput<'state> = 'state -> OpticResult<'state>
 type Lens<'state, 'value> = Lens of ('value OpticInput -> OpticOutput<'state>)
     with
-    member this.d = match this with Lens(l) -> l
+    member this.d : 'value OpticInput -> OpticOutput<'state> = match this with Lens(l) -> l
     static member (=>)(outer: Lens<_,_>, inner: Lens<_,_>) =
         Lens(outer.d << inner.d)
     static member (=>)(outer: unit -> Lens<_,_>, inner: Lens<_,_>) =
         Lens(outer().d << inner.d)
     static member (=>)(outer: Lens<_,_>, inner: unit -> Lens<_,_>) =
         Lens(outer.d << inner().d)
-    member this.chain(inner: Prism<_,_>) : Prism<_,_> =
-        Prism(this.d << inner.d)
+    static member (==>)(outer: Lens<_,_>, inner: Prism<_,_>) = 
+        Prism(outer.d << inner.d)
     static member (?=>)(outer: Lens<_,_>, inner: Prism<_,_>) : Prism<_,_> =
         Prism(outer.d << inner.d)
     static member (?=>)(outer: unit -> Lens<_,_>, inner: Prism<_,_>) : Prism<_,_> =
@@ -31,7 +31,7 @@ type Lens<'state, 'value> = Lens of ('value OpticInput -> OpticOutput<'state>)
 
 and Prism<'state, 'value> = Prism of ('value OpticInput -> OpticOutput<'state>)
     with
-    member this.d = match this with Prism(l) -> l
+    member this.d : 'value OpticInput -> OpticOutput<'state> = match this with Prism(l: 'value OpticInput -> OpticOutput<'state>) -> l
     static member (?=>)(outer: Prism<_,_>, inner: Prism<_,_>) =
         Prism(outer.d << inner.d)
     static member (?=>)(outer: unit -> Prism<_,_>, inner: Prism<_,_>) =
@@ -70,7 +70,7 @@ type Operations =
         fun (f : 'value -> 'value) (state:'state) ->
             match l (f >> Update) state with
             | Update v -> v
-            | Ignore -> shouldntHappen()
+            | Ignore -> failwith "Shouldn't ever happen: over failed to return a value"
     static member over (Prism prism: Prism<'state,'value>) : ('value -> 'value) -> 'state -> 'state =
         fun (f : 'value -> 'value) (state:'state) ->
             match prism (f >> Update) state with
@@ -108,16 +108,19 @@ let inline lens (get: 'state -> 'value) (set: 'value -> 'state -> 'state) : Lens
 let inline prism (get: 'state -> 'value option) (set: 'value -> 'state -> 'state) : Prism<_,_> =
     Prism.create get set
 
-let fst_() = lens fst (fun v st -> v, snd st)
-let snd_() = lens snd (fun v st -> fst st, v)
+module Tuple2 =
+    let fst_() = lens fst (fun v st -> v, snd st)
+    let snd_() = lens snd (fun v st -> fst st, v)
 
-let some_() =
-    prism id (fun v d -> Some v) 
+module Option =
+    let some_() =
+        prism id (fun v d -> Some v) 
+    let someUnchecked_() =
+        lens Option.get (fun v d -> Some v) 
 
-let list_ n =
-    prism (fun (l: _ list) -> if l.Length >= n then None else List.item n l |> Some) (fun v d -> d |> List.mapi (fun i x -> if i = n then v else x))
+module List =
+    let nth_ n =
+        prism (fun (l: _ list) -> if n >= l.Length then None else List.item n l |> Some) (fun v d -> d |> List.mapi (fun i x -> if i = n then v else x))
+    let nthUnchecked_ n =
+        lens (List.item n) (fun v d -> d |> List.mapi (fun i x -> if i = n then v else x))
 
-let unsafeSome_() =
-    lens Option.get (fun v d -> Some v) 
-let unsafeList_ n =
-    lens (List.item n) (fun v d -> d |> List.mapi (fun i x -> if i = n then v else x))
