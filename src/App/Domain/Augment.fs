@@ -10,8 +10,8 @@ module Stat =
     let values = [Str; Dex; Con; Int; Wis; Cha]
 
 module StatSource =
-    let charSheet = Optics.prism (function CharSheet v -> Some v | _ -> None) (fun v d -> CharSheet v)
-    let age = charSheet => CharSheet.xp_
-    let yearOrBirth = charSheet => CharSheet.yearOfBirth_
-    let statBlock = Optics.lens (function CharSheet v -> v.statBlock | StatBlock v -> v) (fun v -> function CharSheet d -> CharSheet { d with statBlock = v } | StatBlock d -> StatBlock v)
+    let charSheet_ = Optics.prism (function CharSheet v -> Some v | _ -> None) (fun v d -> CharSheet v)
+    let age_ = charSheet_ ?=> CharSheet.xp_
+    let yearOrBirth_ = charSheet_ ?=> CharSheet.yearOfBirth_
+    let statBlock_ = Optics.lens (function CharSheet v -> v.statBlock | StatBlock v -> v) (fun v -> function CharSheet d -> CharSheet { d with statBlock = v } | StatBlock d -> StatBlock v)
 
