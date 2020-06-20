@@ -149,7 +149,7 @@ let view (api: API<_>) model =
         | Some Viewing ->
             // todo: clean this up, too many mysteries here.
             let ix = model |> read api.currentIndex_ |> Option.get
-            let creature_ = Prism(api.roster_.d << (unsafeList_ ix).d) // why doesn't ?=> work here? Why doesn't list_ work instead of unsafeList_?
+            let creature_ = api.roster_.chain (list_ ix) // why doesn't ?=> work here? Why doesn't list_ work instead of unsafeList_?
             let sheet = model |> read (creature_ => Creature.stats_ ?=> StatSource.charSheet)
             let sex = sheet.Value.sex
             viewCharacter api (api.roster_ => unsafeList_ (model |> read api.currentIndex_ |> Option.get) => Creature.name_) sex sheet.Value.statBlock.stats state.editMode model

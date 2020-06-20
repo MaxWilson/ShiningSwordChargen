@@ -14,6 +14,8 @@ type Lens<'state, 'value> = Lens of ('value OpticInput -> OpticOutput<'state>)
         Lens(outer().d << inner.d)
     static member (=>)(outer: Lens<_,_>, inner: unit -> Lens<_,_>) =
         Lens(outer.d << inner().d)
+    member this.chain(inner: Prism<_,_>) : Prism<_,_> =
+        Prism(this.d << inner.d)
     static member (?=>)(outer: Lens<_,_>, inner: Prism<_,_>) : Prism<_,_> =
         Prism(outer.d << inner.d)
     static member (?=>)(outer: unit -> Lens<_,_>, inner: Prism<_,_>) : Prism<_,_> =
