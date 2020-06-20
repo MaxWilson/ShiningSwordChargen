@@ -115,12 +115,14 @@ module Tuple2 =
 module Option =
     let some_() =
         prism id (fun v d -> Some v) 
-    let someUnchecked_() =
+    /// some__ is for if you know you're guaranteed to have some_ because you've already checked it
+    let some__() =
         lens Option.get (fun v d -> Some v) 
 
 module List =
     let nth_ n =
         prism (fun (l: _ list) -> if n >= l.Length then None else List.item n l |> Some) (fun v d -> d |> List.mapi (fun i x -> if i = n then v else x))
-    let nthUnchecked_ n =
+    /// some__ is for if you know you're guaranteed to have nth_ because you've already checked it
+    let nth__ n =
         lens (List.item n) (fun v d -> d |> List.mapi (fun i x -> if i = n then v else x))
 

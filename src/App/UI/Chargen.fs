@@ -130,7 +130,7 @@ let view (api: API<_>) model =
                         ]
                     cancel
                 | Some stats ->
-                    viewCharacter api (api.chargen_ => name_ => Option.someUnchecked_) sex stats state.editMode model
+                    viewCharacter api (api.chargen_ => name_ => Option.some__) sex stats state.editMode model
                     Html.button [
                         prop.onClick (fun _ -> api.updateCmd(fun model ->
                             model
@@ -147,12 +147,12 @@ let view (api: API<_>) model =
             yield! model |> read api.roster_ |> List.mapi selectFor
             cancel
         | Some Viewing ->
-            // todo: clean this up, too many mysteries here.
             let ix = model |> read api.currentIndex_ |> Option.get
-            let creature_ = api.roster_ ?=> (List.nth_ ix)
-            let sheet = model |> read (creature_ ?=> Creature.stats_ ?=> StatSource.charSheet_)
-            let sex = sheet.Value.sex
-            viewCharacter api (api.roster_ => List.nthUnchecked_ (model |> read api.currentIndex_ |> Option.get) => Creature.name_) sex sheet.Value.statBlock.stats state.editMode model
+            let roster = (model |> read api.roster_)
+            if ix >= roster.Length then shouldntHappen()
+            let sheet = roster |> read (List.nth__ ix => Creature.stats_ ?=> StatSource.charSheet_) |> Option.get
+            let sex = sheet.sex
+            viewCharacter api (api.roster_ => List.nth__ (model |> read api.currentIndex_ |> Option.get) => Creature.name_) sex sheet.statBlock.stats state.editMode model
             cancel
         | None ->
             Html.button [
