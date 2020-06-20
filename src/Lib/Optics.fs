@@ -36,11 +36,11 @@ and Prism<'state, 'value> = Prism of ('value OpticInput -> OpticOutput<'state>)
         Prism(outer().d << inner.d)
     static member (?=>)(outer: Prism<_,_>, inner: unit -> Prism<_,_>) =
         Prism(outer.d << inner().d)
-    static member (=>)(outer: Prism<'state,'value>, inner: Lens<'value,'innerValue>) : Prism<'state,'innerValue> =
+    static member (?=>)(outer: Prism<'state,'value>, inner: Lens<'value,'innerValue>) : Prism<'state,'innerValue> =
         Prism(outer.d << inner.d)
-    static member (=>)(outer: unit -> Prism<_,_>, inner: Lens<_,_>) : Prism<_,_> =
+    static member (?=>)(outer: unit -> Prism<_,_>, inner: Lens<_,_>) : Prism<_,_> =
         Prism(outer().d << inner.d)
-    static member (=>)(outer: Prism<_,_>, inner: unit -> Lens<_,_>) : Prism<_,_> =
+    static member (?=>)(outer: Prism<_,_>, inner: unit -> Lens<_,_>) : Prism<_,_> =
         Prism(outer.d << inner().d)
     static member create (get: 'state -> 'value option) (set: 'value -> 'state -> 'state) : Prism<'state, 'value> =
         fun (f:OpticInput<'value>) s ->
