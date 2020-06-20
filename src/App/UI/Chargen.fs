@@ -150,7 +150,7 @@ let view (api: API<_>) model =
             let ix = model |> read api.currentIndex_ |> Option.get
             let roster = (model |> read api.roster_)
             if ix >= roster.Length then shouldntHappen()
-            let sheet = roster |> read (List.nth__ ix => Creature.stats_ ?=> StatSource.charSheet_) |> Option.get
+            let sheet = roster |> read (List.nth__ ix => Creature.stats_ => StatSource.charSheet_) |> Option.get
             let sex = sheet.sex
             viewCharacter api (api.roster_ => List.nth__ (model |> read api.currentIndex_ |> Option.get) => Creature.name_) sex sheet.statBlock.stats state.editMode model
             cancel

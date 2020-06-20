@@ -11,7 +11,7 @@ module Stat =
 
 module StatSource =
     let charSheet_ = Optics.prism (function CharSheet v -> Some v | _ -> None) (fun v d -> CharSheet v)
-    let age_ = charSheet_ ?=> CharSheet.xp_
-    let yearOrBirth_ = charSheet_ ?=> CharSheet.yearOfBirth_
+    let age_ = charSheet_ => CharSheet.xp_
+    let yearOrBirth_ = charSheet_ => CharSheet.yearOfBirth_
     let statBlock_ = Optics.lens (function CharSheet v -> v.statBlock | StatBlock v -> v) (fun v -> function CharSheet d -> CharSheet { d with statBlock = v } | StatBlock d -> StatBlock v)
 
