@@ -30,11 +30,15 @@ type StatBlock = {
     ac: int
     }
 
+[<Generator.DuCases>]
+type Sex = Male | Female | Neither
+
 [<Generator.Lenses>]
 type CharSheet = {
     statBlock: StatBlock
     xp: int
     yearOfBirth: int
+    sex: Sex
     }
 
 type StatSource = StatBlock of StatBlock | CharSheet of CharSheet

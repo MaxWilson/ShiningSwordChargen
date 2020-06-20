@@ -7,7 +7,6 @@
   <ItemGroup>
     <Compile Include="Common.fs" />
     <Compile Include="Optics.fs" />
-    <Compile Include="Library.fs" />
     <PackageReference Update="FSharp.Core" Version="4.7.2" />
   </ItemGroup>
 

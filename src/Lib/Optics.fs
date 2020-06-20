@@ -14,11 +14,11 @@ type Lens<'state, 'value> = Lens of ('value OpticInput -> OpticOutput<'state>)
         Lens(outer().d << inner.d)
     static member (=>)(outer: Lens<_,_>, inner: unit -> Lens<_,_>) =
         Lens(outer.d << inner().d)
-    static member (=>)(outer: Lens<_,_>, inner: Prism<_,_>) : Prism<_,_> =
+    static member (?=>)(outer: Lens<_,_>, inner: Prism<_,_>) : Prism<_,_> =
         Prism(outer.d << inner.d)
-    static member (=>)(outer: unit -> Lens<_,_>, inner: Prism<_,_>) : Prism<_,_> =
+    static member (?=>)(outer: unit -> Lens<_,_>, inner: Prism<_,_>) : Prism<_,_> =
         Prism(outer().d << inner.d)
-    static member (=>)(outer: Lens<_,_>, inner: unit -> Prism<_,_>) : Prism<_,_> =
+    static member (?=>)(outer: Lens<_,_>, inner: unit -> Prism<_,_>) : Prism<_,_> =
         Prism(outer.d << inner().d)
     static member create (get: 'state -> 'value) (set: 'value -> 'state -> 'state) : Lens<'state, 'value> =
         fun (f:OpticInput<_>) s ->
@@ -30,11 +30,11 @@ type Lens<'state, 'value> = Lens of ('value OpticInput -> OpticOutput<'state>)
 and Prism<'state, 'value> = Prism of ('value OpticInput -> OpticOutput<'state>)
     with
     member this.d = match this with Prism(l) -> l
-    static member (=>)(outer: Prism<_,_>, inner: Prism<_,_>) =
+    static member (?=>)(outer: Prism<_,_>, inner: Prism<_,_>) =
         Prism(outer.d << inner.d)
-    static member (=>)(outer: unit -> Prism<_,_>, inner: Prism<_,_>) =
+    static member (?=>)(outer: unit -> Prism<_,_>, inner: Prism<_,_>) =
         Prism(outer().d << inner.d)
-    static member (=>)(outer: Prism<_,_>, inner: unit -> Prism<_,_>) =
+    static member (?=>)(outer: Prism<_,_>, inner: unit -> Prism<_,_>) =
         Prism(outer.d << inner().d)
     static member (=>)(outer: Prism<'state,'value>, inner: Lens<'value,'innerValue>) : Prism<'state,'innerValue> =
         Prism(outer.d << inner.d)
@@ -80,6 +80,10 @@ type Operations =
     static member write (Prism _ as prism: Prism<'state,'value>) : 'value -> 'state -> 'state =
         fun (value:'value) (state: 'state) ->
             Operations.over prism (fun _ -> value) state
+    // convenience overload for a common pattern: write to a lens option
+    static member writeSome (lens: Lens<'state,'value option>) : 'value -> 'state -> 'state =
+        fun (value:'value) (state: 'state) ->
+            Operations.over lens (fun _ -> Some value) state
     // convenience overloads for parametric-polymorphic lenses
     static member read(lens: unit -> Lens<'state, 'value>): 'state -> 'value =
         Operations.read(lens())
@@ -93,6 +97,8 @@ type Operations =
         Operations.write(lens())
     static member write(prism: unit -> Prism<'state, 'value>) =
         Operations.write(prism())
+    static member writeSome(lens: unit -> Lens<'state, 'value option>) =
+        Operations.writeSome(lens())
 
 let inline lens (get: 'state -> 'value) (set: 'value -> 'state -> 'state) : Lens<_,_> =
     Lens.create get set
@@ -103,5 +109,13 @@ let inline prism (get: 'state -> 'value option) (set: 'value -> 'state -> 'state
 let fst_() = lens fst (fun v st -> v, snd st)
 let snd_() = lens snd (fun v st -> fst st, v)
 
+let some_() =
+    prism id (fun v d -> Some v) 
+
 let list_ n =
+    prism (fun (l: _ list) -> if l.Length >= n then None else List.item n l |> Some) (fun v d -> d |> List.mapi (fun i x -> if i = n then v else x))
+
+let unsafeSome_() =
+    lens Option.get (fun v d -> Some v) 
+let unsafeList_ n =
     lens (List.item n) (fun v d -> d |> List.mapi (fun i x -> if i = n then v else x))

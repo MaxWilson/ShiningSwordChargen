@@ -68,6 +68,43 @@ module Stat =
         | Cha -> true
         | _ -> false
 
+module Sex =
+    open Domain.Model
+
+    let toString (x: Sex) =
+        match x with
+        | Male -> "Male"
+        | Female -> "Female"
+        | Neither -> "Neither"
+
+    let fromString (x: string) =
+        match x with
+        | "Male" -> Some Male
+        | "Female" -> Some Female
+        | "Neither" -> Some Neither
+        | _ -> None
+
+    let toTag (x: Sex) =
+        match x with
+        | Male -> 0
+        | Female -> 1
+        | Neither -> 2
+
+    let isMale (x: Sex) =
+        match x with
+        | Male -> true
+        | _ -> false
+
+    let isFemale (x: Sex) =
+        match x with
+        | Female -> true
+        | _ -> false
+
+    let isNeither (x: Sex) =
+        match x with
+        | Neither -> true
+        | _ -> false
+
 module Race =
     open Domain.Model
 
@@ -153,6 +190,9 @@ module CharSheet =
     let yearOfBirth_ =
         Optics.lens (fun (data: CharSheet) -> data.yearOfBirth) (fun (value: int) (data: CharSheet) ->
             { data with yearOfBirth = value })
+
+    let sex_ =
+        Optics.lens (fun (data: CharSheet) -> data.sex) (fun (value: Sex) (data: CharSheet) -> { data with sex = value })
 
 module Creature =
     open Domain.Model
