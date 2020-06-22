@@ -3,7 +3,7 @@
 #load @"..\..\Lib\Optics.fs"
 #load @"Model.fs"
 #load @"AutoGen.fs"
-#load @"Gen.fs"
+#load @"Augment.fs"
 #load @"Common.fs"
 #load @"Chargen.fs"
 
