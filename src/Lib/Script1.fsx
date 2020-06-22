@@ -2,34 +2,39 @@
 #load @"Common.fs"
 #load @"Optics.fs"
 
-type Setting<'t>(item: 't) =
-    member this.d = item
-    member this.Visit (v: IVisitor<'t, 'r>) = v.Accept this
+[<AbstractClass>]
+type Setting<'t>() =
+    abstract Visit: IVisitor<'t, 'r> -> 'r
 and IVisitor<'t, 'r> =
-    abstract member Accept: Setting<'t> -> 'r
+    abstract member Leaf: 't -> 'r
+    abstract member Node: ('t * Setting<'t> option * Setting<'t> option) -> 'r
+type Leaf<'t>(d) =
+    inherit Setting<'t>()
+    override this.Visit(v: IVisitor<_,_>) = v.Leaf d
+type Node<'t>(d, l, r) =
+    inherit Setting<'t>()
+    override this.Visit(v: IVisitor<_,_>) = v.Node (d, l, r)
 
 let leaf v =
-    (v, None, None) |> Setting |> Some
-let node(v, l, r) = (v, l, r) |> Setting |> Some
+    Leaf(v) :> Setting<_> |> Some
+let node(v, l, r) = (v, l, r) |> Node :> Setting<_> |> Some
 let tree (Some n) = n
 let settings = 
     (node(5, node(42, leaf 4, None), node(4, None, None)))
 let rec extract (v: Setting<_>) =
     v.Visit <|
         { new IVisitor<_, _> with
-            member this.Accept(node: Setting<_>) = 
-                match node.d with
+            member this.Leaf v = v
+            member this.Node args =
+                match args with
                 | _, Some v, _ -> extract v
                 | _, _, Some v -> extract v
                 | v, None, None -> v
                 }
-let t() = tree(node(5, node(42, leaf 4, None), node(4, None, None)))
-tree(node(5, node(42, leaf 4, None), node(4, None, None))) |> extract
-settings |> extract
-let defer n = Setting(Leaf n)
-let setting n = Setting(Interior n)
-(setting (setting (defer 42))) |> extract
-(setting (defer 3)) |> extract
+tree(node(5, node(42, leaf 4, None), node(7, None, None))) |> extract
+tree(node(5, node(42, None, None), node(7, None, None))) |> extract
+tree(node(5, None, node(7, None, None))) |> extract
+tree(node(5, None, None)) |> extract
 
 // Source: http://www.fssnip.net/mp/title/An-attempt-at-encoding-GADTs
 
