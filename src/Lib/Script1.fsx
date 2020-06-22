@@ -8,16 +8,28 @@ type Setting<'t>(item: 't) =
 and IVisitor<'t, 'r> =
     abstract member Accept: Setting<'t> -> 'r
 
+let leaf v =
+    (v, None, None) |> Setting |> Some
+let node(v, l, r) = (v, l, r) |> Setting |> Some
+let tree (Some n) = n
 let settings = 
-    Setting(Some 3, Some 4)
-
-let extract (v: Setting<_>) =
+    (node(5, node(42, leaf 4, None), node(4, None, None)))
+let rec extract (v: Setting<_>) =
     v.Visit <|
         { new IVisitor<_, _> with
-            member this.Accept(node: Setting<'t>) = node.d }
-
-(Setting 3) |> extract
+            member this.Accept(node: Setting<_>) = 
+                match node.d with
+                | _, Some v, _ -> extract v
+                | _, _, Some v -> extract v
+                | v, None, None -> v
+                }
+let t() = tree(node(5, node(42, leaf 4, None), node(4, None, None)))
+tree(node(5, node(42, leaf 4, None), node(4, None, None))) |> extract
 settings |> extract
+let defer n = Setting(Leaf n)
+let setting n = Setting(Interior n)
+(setting (setting (defer 42))) |> extract
+(setting (defer 3)) |> extract
 
 // Source: http://www.fssnip.net/mp/title/An-attempt-at-encoding-GADTs
 
