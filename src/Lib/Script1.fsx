@@ -153,6 +153,8 @@ let wizard =
 
 let pmatch (pattern : IPatternMatch<'t, 'r>) (x : ISetting<'t>) = x.Match pattern
 
+// What is needed now is a way to determine when a given setting has been chosen,
+// probably with some kind of threaded state that pattern can read from.
 let rec pattern<'t> =
     {
         new IPatternMatch<'t, 't> with
