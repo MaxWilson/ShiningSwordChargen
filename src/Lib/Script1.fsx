@@ -99,12 +99,22 @@ module Example =
 type 't LifecycleStage = Unset | Set | Complete of 't
     with static member map f = function Complete v -> Complete (f v) | v -> v
 
+//type Setting<'T> =
+//    Const :  'T -> Setting<'T>
+//    Choose : Setting<'T List> -> Setting<'T>
+//    App :    Setting<'S -> 'T> -> Setting<'S> -> Setting<'T>
+// 'R is a "free" variable to make GDT eval work, will be constrained to be equal to 'T but
+//    should not be referenced directly in 
 type ISetting<'t> =
     abstract member Match: (IPatternMatch<'t,'r>) -> 'r LifecycleStage
 and IPatternMatch<'t,'r> =
-    abstract member Choice: 's list -> 'r LifecycleStage
+    abstract member Const: 't -> ISetting<'r>
+    abstract member Choice: ISetting<'t list> -> 'r LifecycleStage
     abstract member App: ISetting<'s> -> ISetting<'s -> 't> -> 'r LifecycleStage
-type SettingChoice<'t>(values: ISetting<'t> list) =
+type SettingConst<'t>(values: ISetting<'t list>) =
+    interface ISetting<'t> with
+        member this.Match(m) = m.Choice values
+type SettingChoice<'t>(values: ISetting<'t list>) =
     interface ISetting<'t> with
         member this.Match(m) = m.Choice values
 type SettingCtor<'t,'s>(value: ISetting<'s>, ctor: ISetting<'s -> 't>) =
