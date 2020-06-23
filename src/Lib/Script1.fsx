@@ -108,13 +108,10 @@ type 't LifecycleStage = Unset | Set | Complete of 't
 type ISetting<'t> =
     abstract member Match: (IPatternMatch<'t,'r>) -> 'r LifecycleStage
 and IPatternMatch<'t,'r> =
-    abstract member Const: 't -> ISetting<'r>
-    abstract member Choice: ISetting<'t list> -> 'r LifecycleStage
+    abstract member Const: 't -> 'r LifecycleStage
+    abstract member Choice: 't list -> 'r LifecycleStage
     abstract member App: ISetting<'s> -> ISetting<'s -> 't> -> 'r LifecycleStage
-type SettingConst<'t>(values: ISetting<'t list>) =
-    interface ISetting<'t> with
-        member this.Match(m) = m.Choice values
-type SettingChoice<'t>(values: ISetting<'t list>) =
+type SettingChoice<'t>(values: 't list) =
     interface ISetting<'t> with
         member this.Match(m) = m.Choice values
 type SettingCtor<'t,'s>(value: ISetting<'s>, ctor: ISetting<'s -> 't>) =
