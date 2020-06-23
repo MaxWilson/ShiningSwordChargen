@@ -107,26 +107,30 @@ type 't LifecycleStage = Unset | Set | Complete of 't
 // 'R is a "free" variable to make GDT eval work, will be constrained to be equal to 'T but
 //    should not be referenced directly in 
 type ISetting<'t> =
-    abstract member Match: (IPatternMatch<'t,'r>) -> 'r LifecycleStage
+    abstract member Match: IPatternMatch<'t,'r> -> 'state -> 'r LifecycleStage * 'output list
+and Render<'output> = 
+    abstract member Render: 's1 -> 'output
 and IPatternMatch<'t,'r> =
-    abstract member Const: 't -> 'r LifecycleStage
-    abstract member Choice: ISetting<'t> list -> 'r LifecycleStage
-    abstract member App1: ISetting<'s -> 't> -> ISetting<'s> -> 'r LifecycleStage
-    abstract member App2: ISetting<'s1*'s2 -> 't> -> ISetting<'s1> -> ISetting<'s2> -> 'r LifecycleStage
+    abstract member Const: 't -> 'r LifecycleStage * 'output list
+    abstract member Choice: ISetting<'t> list -> 'state -> 'r LifecycleStage * 'output list
+    abstract member App1: ISetting<'s -> 't> -> ISetting<'s> -> 'state -> 'r LifecycleStage * 'output list
+    abstract member App2: ISetting<'s1*'s2 -> 't> -> ISetting<'s1> -> ISetting<'s2> -> 'state -> 'r LifecycleStage * 'output list
+let compose render children (input: 'r LifecycleStage) =
+    input, [render input]@children
 type SettingConst<'t>(v: 't) =
     interface ISetting<'t> with
-        member this.Match(m) = m.Const v
+        member this.Match m _ = m.Const v
 type SettingChoice<'t>(values: ISetting<'t> list) =
     interface ISetting<'t> with
-        member this.Match(m) = m.Choice values
+        member this.Match m state = m.Choice values state
 // returns a value only once the user has picked a value
 type SettingCtor<'t,'s>(ctor: ISetting<'s -> 't>, arg: ISetting<'s>) =
     interface ISetting<'t> with
-        member this.Match(m: IPatternMatch<'t,'r>) = m.App1 ctor arg
+        member this.Match m state = m.App1 ctor arg state
 // returns a value only once the user has picked a value
 type SettingCtor2<'t,'s1,'s2>(ctor: ISetting<'s1*'s2 -> 't>, arg1: ISetting<'s1>, arg2: ISetting<'s2>) =
     interface ISetting<'t> with
-        member this.Match(m: IPatternMatch<'t,'r>) = m.App2 ctor arg1 arg2
+        member this.Match m state = m.App2 ctor arg1 arg2 state
 let c v = SettingConst(v) :> ISetting<_>
 let choose options = SettingChoice(options) :> ISetting<_>
 let ctor(f, arg)= SettingCtor(f,arg) :> ISetting<_>
@@ -151,16 +155,15 @@ let wizard =
                 ])
         ]
 
-let pmatch (pattern : IPatternMatch<'t, 'r>) (x : ISetting<'t>) = x.Match pattern
-
 // What is needed now is a way to determine when a given setting has been chosen,
 // probably with some kind of threaded state that pattern can read from.
-let rec pattern<'t> =
+let rec pattern<'t,'state,'reactElement> (state: 'state) (render: Render<'reactElement>) =
     {
         new IPatternMatch<'t, 't> with
-            member __.Const x = Complete x
-            member __.Choice x = notImpl()
-            member __.App1 f arg = notImpl()
-            member __.App2 f arg1 arg2 = notImpl()
+            member __.Const x = Complete x, []
+            member __.Choice x state = notImpl()
+            member __.App1 f arg state = notImpl()
+            member __.App2 f arg1 arg2 state = notImpl()
     }
-and eval<'t> (setting : ISetting<'t>) : 't LifecycleStage = pmatch pattern<'t> setting
+and eval<'t,'state,'reactElement> (state: 'state) (render: Render<'reactElement>) (setting : ISetting<'t>) : 't LifecycleStage * _ = 
+    setting.Match (pattern<'t,'state,'reactElement> state render) state
