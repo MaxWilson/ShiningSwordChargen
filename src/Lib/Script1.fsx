@@ -100,22 +100,54 @@ type 't LifecycleStage = Unset | Set | Complete of 't
     with static member map f = function Complete v -> Complete (f v) | v -> v
 
 //type Setting<'T> =
-//    Const :  'T -> Setting<'T>
-//    Choose : Setting<'T List> -> Setting<'T>
-//    App :    Setting<'S -> 'T> -> Setting<'S> -> Setting<'T>
+//    Const<'T>: 'T -> Setting<'T>
+//    Choice : Setting<'T List> -> Setting<'T>
+//    App1 :    Setting<'S -> 'T> -> Setting<'S> -> Setting<'T>
+//    App1 :    Setting<'S1*'S2 -> 'T> -> Setting<'S1> -> Setting<'S2> -> Setting<'T>
 // 'R is a "free" variable to make GDT eval work, will be constrained to be equal to 'T but
 //    should not be referenced directly in 
 type ISetting<'t> =
     abstract member Match: (IPatternMatch<'t,'r>) -> 'r LifecycleStage
 and IPatternMatch<'t,'r> =
     abstract member Const: 't -> 'r LifecycleStage
-    abstract member Choice: 't list -> 'r LifecycleStage
-    abstract member App: ISetting<'s> -> ISetting<'s -> 't> -> 'r LifecycleStage
-type SettingChoice<'t>(values: 't list) =
+    abstract member Choice: ISetting<'t> list -> 'r LifecycleStage
+    abstract member App1: ISetting<'s -> 't> -> ISetting<'s> -> 'r LifecycleStage
+    abstract member App2: ISetting<'s1*'s2 -> 't> -> ISetting<'s1> -> ISetting<'s2> -> 'r LifecycleStage
+type SettingConst<'t>(v: 't) =
+    interface ISetting<'t> with
+        member this.Match(m) = m.Const v
+type SettingChoice<'t>(values: ISetting<'t> list) =
     interface ISetting<'t> with
         member this.Match(m) = m.Choice values
-type SettingCtor<'t,'s>(value: ISetting<'s>, ctor: ISetting<'s -> 't>) =
+// returns a value only once the user has picked a value
+type SettingCtor<'t,'s>(ctor: ISetting<'s -> 't>, arg: ISetting<'s>) =
     interface ISetting<'t> with
-        member this.Match(m: IPatternMatch<'t,'r>) = m.App value ctor 
-        
+        member this.Match(m: IPatternMatch<'t,'r>) = m.App1 ctor arg
+// returns a value only once the user has picked a value
+type SettingCtor2<'t,'s1,'s2>(ctor: ISetting<'s1*'s2 -> 't>, arg1: ISetting<'s1>, arg2: ISetting<'s2>) =
+    interface ISetting<'t> with
+        member this.Match(m: IPatternMatch<'t,'r>) = m.App2 ctor arg1 arg2
+let c v = SettingConst(v) :> ISetting<_>
+let choose options = SettingChoice(options) :> ISetting<_>
+let ctor(f, arg)= SettingCtor(f,arg) :> ISetting<_>
+let ctor2(f, arg1, arg2)= SettingCtor2(f, arg1, arg2) :> ISetting<_>
+let both(arg1, arg2) = ctor2(c id, arg1, arg2)
+type XanatharDifficulty = Easy | Medium | Hard
+type XanatharType = Solo | Group | Mixed
+type Difficulty = Easy | Medium | Hard | Deadly | Ludicrous
+type EncounterGenerator = Xanathar of XanatharDifficulty | DMG of Difficulty | ShiningSword of Difficulty
+type Analysis = PureCR | Encounter of EncounterGenerator
+let wizard = 
+    choose [
+        c PureCR
+        ctor(c Encounter,
+            choose [
+                ctor(c Xanathar,
+                    choose [c XanatharDifficulty.Easy; c XanatharDifficulty.Medium; c XanatharDifficulty.Hard]
+                    )
+                ctor(choose [c DMG; c ShiningSword],
+                    choose [c Easy; c Medium; c Hard; c Deadly; c Ludicrous]
+                    )
+                ])
+        ]
 
