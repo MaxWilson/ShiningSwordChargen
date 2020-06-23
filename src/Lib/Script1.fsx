@@ -151,3 +151,14 @@ let wizard =
                 ])
         ]
 
+let pmatch (pattern : IPatternMatch<'t, 'r>) (x : ISetting<'t>) = x.Match pattern
+
+let rec pattern<'t> =
+    {
+        new IPatternMatch<'t, 't> with
+            member __.Const x = Complete x
+            member __.Choice x = notImpl()
+            member __.App1 f arg = notImpl()
+            member __.App2 f arg1 arg2 = notImpl()
+    }
+and eval<'t> (setting : ISetting<'t>) : 't LifecycleStage = pmatch pattern<'t> setting
