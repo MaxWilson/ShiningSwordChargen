@@ -127,3 +127,20 @@ let multiply =
 eval (app (app multiply (constant 6)) (constant 7))
 
 eval (app (lam(fun n -> ifThenElse (constant (eval n < 10)) (constant "A") (constant "B"))) (constant 11))
+
+// Setting lifecycle: unset, set, complete
+type 't LifecycleStage = Unset | Set | Complete of 't
+    with static member map f = function Complete v -> Complete (f v) | v -> v
+
+type ISetting<'t> =
+    abstract member Value: (#ISettingVisitor<'t>) -> 't LifecycleStage
+and ISettingVisitor<'t> =
+    abstract member Visit: ISetting<'t> -> 't LifecycleStage
+type SettingChoice<'t>(values: ISetting<'t> list) =
+    interface ISetting<'t> with
+        member this.Value(v) = v.Visit values.Head
+type SettingCtor<'t,'r>(value: ISetting<'t>, ctor: 't -> 'r) =
+    interface ISetting<'r> with
+        member this.Value(v) = value |> LifecycleStage.map ctor
+
+
