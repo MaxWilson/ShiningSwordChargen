@@ -130,7 +130,7 @@ module Debug =
 // 'R is a "free" variable to make GDT eval work, will be constrained to be equal to 't but
 //    should not be referenced directly in 
 type ISetting<'t> =
-    abstract member Match: IPatternMatch<'t, 'r> ->'r
+    abstract member Match: IPatternMatch<'t, 'r> -> 'r
 and IPatternMatch<'t, 'r> =
     abstract member Const: 't -> 'r
     abstract member Choice: ISetting<'t> list -> 'r
@@ -141,17 +141,17 @@ and HashCode = int
 and PatternState = Map<HashCode, obj>
 
 let pmatch (pattern : IPatternMatch<'t, 'r>) (x : ISetting<'t>) = x.Match pattern
-let rec pattern<'t> =
+let rec pattern<'t, 'output> state (render: Render<'output>) =
     {
         new IPatternMatch<'t, 't> with
             member __.Const x = x
             member __.Choice options = notImpl()
             member __.App(f, arg) =
-                let x = eval arg
-                let y = eval f
+                let x = eval arg state render
+                let y = eval f state render
                 notImpl()
     }
-and eval<'t> (expr : ISetting<'t>) : 't = pmatch pattern<'t> expr
+and eval<'t,'output> (expr : ISetting<'t>) (state:PatternState) (render: Render<'output>): 't = pmatch (pattern<'t,'output> state render) expr
 
 let pmatch (pattern : IPatternMatch<'t, 'r>) (x : ISetting<'t>) = x.Match pattern
 let rec pattern<'t, 'state> (state: 'state) =
