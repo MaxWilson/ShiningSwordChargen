@@ -5,53 +5,53 @@
 module Example =
     // Source: http://www.fssnip.net/mp/title/An-attempt-at-encoding-GADTs
 
-    //type Expr<'T> =
-    //    Const : 'T -> Expr<'T>
+    //type Expr<'t> =
+    //    Const : 't -> Expr<'t>
     //    Add : Expr<int> -> Expr<int> -> Expr<int>
-    //    IfThenElse : Expr<bool> -> Expr<'T> -> Expr<'T> -> Expr<'T>
-    //    App : Expr<'T -> 'S> -> Expr<'T> -> Expr<'S>
-    //    Lam : (Expr<'T> -> Expr<'S>) -> Expr<'T -> 'S>
-    //    Fix : Expr<('T -> 'S) -> 'T -> 'S> -> Expr<'T -> 'S>
+    //    IfThenElse : Expr<bool> -> Expr<'t> -> Expr<'t> -> Expr<'t>
+    //    App : Expr<'t -> 'S> -> Expr<'t> -> Expr<'S>
+    //    Lam : (Expr<'t> -> Expr<'S>) -> Expr<'t -> 'S>
+    //    Fix : Expr<('t -> 'S) -> 't -> 'S> -> Expr<'t -> 'S>
 
     [<AbstractClass>]
-    type Expr<'T> internal () =
-        abstract Match : IPatternMatch<'T, 'R> -> 'R
+    type Expr<'t> internal () =
+        abstract Match : IPatternMatch<'t, 'R> -> 'R
 
     // instaces of IPatternMatch encode a match expression
 
-    and IPatternMatch<'T, 'R> =
-        abstract Const : 'T -> 'R
+    and IPatternMatch<'t, 'R> =
+        abstract Const : 't -> 'R
         abstract Add : Expr<int> -> Expr<int> -> 'R
-        abstract IfThenElse : Expr<bool> -> Expr<'T> -> Expr<'T> -> 'R
-        abstract App<'S> : Expr<'S -> 'T> -> Expr<'S> -> 'R
-        abstract Lam<'T1, 'T2> : (Expr<'T1> -> Expr<'T2>) -> 'R
-        abstract Fix<'T1, 'T2> : Expr<('T1 -> 'T2) -> 'T1 -> 'T2> -> 'R
+        abstract IfThenElse : Expr<bool> -> Expr<'t> -> Expr<'t> -> 'R
+        abstract App<'S> : Expr<'S -> 't> -> Expr<'S> -> 'R
+        abstract Lam<'t1, 't2> : (Expr<'t1> -> Expr<'t2>) -> 'R
+        abstract Fix<'t1, 't2> : Expr<('t1 -> 't2) -> 't1 -> 't2> -> 'R
 
     // concrete case implementations
 
-    type internal Const<'T>(value : 'T) =
-        inherit Expr<'T> ()
-        override __.Match (m : IPatternMatch<'T, 'R>) = m.Const value
+    type internal Const<'t>(value : 't) =
+        inherit Expr<'t> ()
+        override __.Match (m : IPatternMatch<'t, 'R>) = m.Const value
 
     type internal Add(left : Expr<int>, right : Expr<int>) =
         inherit Expr<int> ()
         override __.Match (m : IPatternMatch<int, 'R>) = m.Add left right
 
-    type internal IfThenElse<'T>(b : Expr<bool>, l : Expr<'T>, r : Expr<'T>) =
-        inherit Expr<'T> ()
-        override __.Match (m : IPatternMatch<'T, 'R>) = m.IfThenElse b l r
+    type internal IfThenElse<'t>(b : Expr<bool>, l : Expr<'t>, r : Expr<'t>) =
+        inherit Expr<'t> ()
+        override __.Match (m : IPatternMatch<'t, 'R>) = m.IfThenElse b l r
 
-    type internal App<'T,'S> (f : Expr<'S -> 'T>, x : Expr<'S>) =
-        inherit Expr<'T> ()
-        override __.Match (m : IPatternMatch<'T, 'R>) = m.App f x
+    type internal App<'t,'S> (f : Expr<'S -> 't>, x : Expr<'S>) =
+        inherit Expr<'t> ()
+        override __.Match (m : IPatternMatch<'t, 'R>) = m.App f x
 
-    type internal Lam<'T1,'T2> (f : Expr<'T1> -> Expr<'T2>) =
-        inherit Expr<'T1 -> 'T2> ()
-        override __.Match (m : IPatternMatch<'T1 -> 'T2, 'R>) = m.Lam f
+    type internal Lam<'t1,'t2> (f : Expr<'t1> -> Expr<'t2>) =
+        inherit Expr<'t1 -> 't2> ()
+        override __.Match (m : IPatternMatch<'t1 -> 't2, 'R>) = m.Lam f
 
-    type internal Fix<'T, 'S> (f : Expr<('T -> 'S) -> 'T -> 'S>) =
-        inherit Expr<'T -> 'S> ()
-        override __.Match (m : IPatternMatch<'T -> 'S, 'R>) = m.Fix f
+    type internal Fix<'t, 'S> (f : Expr<('t -> 'S) -> 't -> 'S>) =
+        inherit Expr<'t -> 'S> ()
+        override __.Match (m : IPatternMatch<'t -> 'S, 'R>) = m.Fix f
 
     // constructor api
     let constant x = Const<_>(x) :> Expr<_>
@@ -61,24 +61,24 @@ module Example =
     let lam f = Lam<_,_>(f) :> Expr<_>
     let fix f = Fix<_,_>(f) :> Expr<_>
 
-    let pmatch (pattern : IPatternMatch<'T, 'R>) (x : Expr<'T>) = x.Match pattern
+    let pmatch (pattern : IPatternMatch<'t, 'R>) (x : Expr<'t>) = x.Match pattern
 
     // example : implement evaluator using pattern match
 
-    let cast (x : 'T) = x :> obj :?> 'S
+    let cast (x : 't) = x :> obj :?> 'S
 
-    let rec pattern<'T> =
+    let rec pattern<'t> =
         {
-            new IPatternMatch<'T, 'T> with
+            new IPatternMatch<'t, 't> with
                 member __.Const x = x
-                member __.Add x y = cast(eval x + eval y)
+                member __.Add x y = unbox(eval x + eval y)
                 member __.IfThenElse b x y = if eval b then eval x else eval y
                 member __.App f x = (eval f) (eval x)
                 member __.Lam f = cast(eval << f << constant)
                 member __.Fix f = cast(eval f (fun x -> eval (fix f) x))
         }
 
-    and eval<'T> (expr : Expr<'T>) : 'T = pmatch pattern<'T> expr
+    and eval<'t> (expr : Expr<'t>) : 't = pmatch pattern<'t> expr
 
     // tests
 
@@ -100,12 +100,12 @@ let notImpl() = failwith "Not implemented"
 type 't LifecycleStage = Unset | Set | Complete of 't
     with static member map f = function Complete v -> Complete (f v) | v -> v
 
-//type Setting<'T> =
-//    Const<'T>: 'T -> Setting<'T>
-//    Choice : Setting<'T List> -> Setting<'T>
-//    App1 :    Setting<'S -> 'T> -> Setting<'S> -> Setting<'T>
-//    App1 :    Setting<'S1*'S2 -> 'T> -> Setting<'S1> -> Setting<'S2> -> Setting<'T>
-// 'R is a "free" variable to make GDT eval work, will be constrained to be equal to 'T but
+//type Setting<'t> =
+//    Const<'t>: 't -> Setting<'t>
+//    Choice : Setting<'t List> -> Setting<'t>
+//    App1 :    Setting<'S -> 't> -> Setting<'S> -> Setting<'t>
+//    App1 :    Setting<'S1*'S2 -> 't> -> Setting<'S1> -> Setting<'S2> -> Setting<'t>
+// 'R is a "free" variable to make GDT eval work, will be constrained to be equal to 't but
 //    should not be referenced directly in 
 type ISetting<'t> =
     abstract member Match: IPatternMatch<'t, 'r, 'output> ->'r LifecycleStage * 'output list
@@ -113,11 +113,47 @@ and Render<'output> =
     abstract member Render: 't1 -> isSelected:bool -> 'output
 and HashCode = int
 and PatternState = Map<HashCode, obj>
-and IPatternMatch<'t,'r, 'output> =
+and IPatternMatch<'t, 'r, 'output> =
     abstract member Const: 't -> 'r LifecycleStage * 'output list
     abstract member Choice: ISetting<'t> list -> 'r LifecycleStage * 'output list
-    abstract member App1: ISetting<'s -> 't> -> ISetting<'s> -> 'r LifecycleStage * 'output list
-    abstract member App2: ISetting<'s1*'s2 -> 't> -> ISetting<'s1> -> ISetting<'s2> -> 'r LifecycleStage * 'output list
+    abstract member App1<'s> : ISetting<'s -> 't> -> ISetting<'s> -> 'r LifecycleStage * 'output list
+    abstract member App2<'s1, 's2> : ISetting<'s1*'s2 -> 't> -> ISetting<'s1> -> ISetting<'s2> -> 'r LifecycleStage * 'output list
+let pmatch (pattern : IPatternMatch<'t, 'R, string>) (x : ISetting<'t>) = x.Match pattern
+let rec pattern<'t> =
+    {
+        new IPatternMatch<'t, 't, string> with
+            member __.Const x = Complete x, []
+            member __.Choice options = notImpl()
+            member this.App1 f arg = 
+                let x = eval f
+                notImpl()
+            member this.App2 f arg arg2 = notImpl()
+    }
+and eval<'t> (expr : ISetting<'t>) : 't LifecycleStage * _ = pmatch pattern<'t> expr
+
+let pmatch (pattern : IPatternMatch<'t, 'r, string>) (x : ISetting<'t>) = x.Match pattern
+let pattern<'t> eval state =
+    {
+            new IPatternMatch<'t, 't, string> with
+                member __.Const x = Complete x, []
+                member __.Choice options = 
+                    let current = (state: Map<int, obj>) |> Map.tryFind (options.GetHashCode()) |> Option.bind (function :? ISetting<'t> as v -> Some v | _ -> None)
+                    let elements = [
+                        ]
+                    match current with
+                    | Some (child: ISetting<'t>) -> 
+                        let (r:'t LifecycleStage), childElements = eval state child
+                        r, elements@childElements
+                    | None -> Unset, elements
+                member __.App1 f arg =
+                    let x = eval state arg
+                    let y = eval state f
+                    notImpl()
+                member __.App2 f arg1 arg2 = notImpl()
+        }
+let rec eval<'t> state (setting : ISetting<'t>) = 
+    pmatch (pattern<'t> eval state) setting
+
 let compose render children (input: 'r LifecycleStage) =
     input, [render input]@children
 type SettingConst<'t>(v: 't) =
@@ -165,9 +201,11 @@ type StringRender() =
         member this.Render v isSelected = sprintf "%s%A" (if isSelected then "+" else " ") v
 let render = StringRender() :> Render<string>
 let state : PatternState = Map.empty
-let rec eval (setting : ISetting<'t>) : 't LifecycleStage * _ = 
-    setting.Match 
-        {
+let pmatch (pattern : IPatternMatch<'t, 'r, string>) (x : ISetting<'t>) = x.Match pattern
+let rec eval<'t> (setting : ISetting<'t>) : 't LifecycleStage * _ = 
+    pmatch (pattern<'t>) setting
+and pattern<'t> =
+    {
             new IPatternMatch<'t, 't, string> with
                 member __.Const x = Complete x, []
                 member __.Choice options = 
@@ -181,9 +219,10 @@ let rec eval (setting : ISetting<'t>) : 't LifecycleStage * _ =
                         let (r:'t LifecycleStage), childElements = eval child
                         r, elements@childElements
                     | None -> Unset, elements
-                member __.App1 f arg =
-                    let set = c (fun x -> x + 1)
-                    let y = eval set
+                member __.App1 (f: ISetting<'s -> 't>) (arg: ISetting<'s>) =
+                    let x = f |> eval
+                    //let y = eval<'s> arg
+
                     //match eval f, eval arg with
                     //| (Complete f, children1), (Complete arg, children2) ->
                     //    //Complete (f arg), children1@children2
@@ -204,9 +243,11 @@ let rec eval (setting : ISetting<'t>) : 't LifecycleStage * _ =
     
                 member __.App2 f arg1 arg2 = notImpl()
         }
-eval wizard Map.empty (StringRender())
-eval (c "hello") Map.empty (StringRender())
-eval (c 123) Map.empty (StringRender())
+let set = c (fun x -> x + 1)
+let y = eval set
+eval wizard
+eval (c "hello") 
+eval (c 123) 
 let choices = [c 123; c 456]
 let mySetting = choose choices
 eval mySetting (Map.ofSeq []) (StringRender())
