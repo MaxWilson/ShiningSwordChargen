@@ -134,7 +134,7 @@ type ISetting<'t> =
 and IPatternMatch<'t, 'r> =
     abstract member Const: 't -> 'r
     abstract member Choice: ISetting<'t> list -> 'r
-    abstract member App<'s> : ISetting<'s -> 't> -> ISetting<'s> -> 'r
+    abstract member App<'s> : ISetting<'s -> 't> * ISetting<'s> -> 'r
 type Render<'output> = 
     abstract member Render: 't1 -> isSelected:bool -> 'output
 and HashCode = int
@@ -146,7 +146,7 @@ let rec pattern<'t> =
         new IPatternMatch<'t, 't> with
             member __.Const x = x
             member __.Choice options = notImpl()
-            member __.App f arg =
+            member __.App(f, arg) =
                 let x = eval arg
                 let y = eval f
                 notImpl()
@@ -167,13 +167,13 @@ let rec pattern<'t> state =
                     //    let (r:'t LifecycleStage), childElements = eval state child
                     //    r, elements@childElements
                     //| None -> Unset, elements
-                member __.App f arg =
-                    let x = eval arg state
-                    let y = eval f state
+                member __.App(f, arg) =
+                    let x = eval(arg, state)
+                    let y = eval(f, state)
                     notImpl()
                 //member __.App2 f arg1 arg2 = notImpl()
         }
-and eval<'t> (setting : ISetting<'t>) state : 't = 
+and eval<'t> (setting : ISetting<'t>, state) : 't = 
     pmatch (pattern<'t> state) setting
 
 let compose render children (input: 'r LifecycleStage) =
