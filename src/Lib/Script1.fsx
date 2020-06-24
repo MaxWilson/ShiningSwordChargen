@@ -99,44 +99,6 @@ let notImpl() = failwith "Not implemented"
 // Setting lifecycle: unset, set, complete
 type 't LifecycleStage = Unset | Set | Complete of 't
     with static member map f = function Complete v -> Complete (f v) | v -> v
-
-module Debug = 
-    type Expr<'t> =
-        abstract member Match: IPatternMatch<'t, 'r> -> 'r LifecycleStage
-    and IPatternMatch<'t, 'r> =
-        abstract member Const: 't -> 'r LifecycleStage
-        abstract member Choice: Expr<'t> list -> 'r LifecycleStage
-        abstract member App : Expr<'s -> 't> -> Expr<'s> -> 'r LifecycleStage
-    type Render = 
-        abstract member Render: 't1 -> isSelected:bool -> unit
-    and HashCode = int
-    and PatternState = Map<HashCode, obj>
-    
-    let pmatch (pattern : IPatternMatch<'t, 'R>) (x : Expr<'t>) = x.Match pattern
-    let rec pattern<'t> (state: PatternState) (render:Render) =
-        {
-            new IPatternMatch<'t, 't> with
-                member __.Const x = Complete x
-                member __.Choice options = 
-                    let current = state |> Map.tryFind (options.GetHashCode()) |> Option.bind (function :? Expr<'t> as v -> Some v | _ -> None)
-                    for o in options do
-                        render.Render o (current = Some o)
-
-                    match current with
-                    | Some (child: Expr<'t>) -> 
-                        let (r:'t LifecycleStage), childElements = eval child state render
-                        r
-                    | None -> Unset
-                member __.App f x = 
-                    match (eval f state render), (eval x state render) with
-                    | (Complete f, e1s), (Complete x, e2s) ->
-                        Complete (f x)
-                    | (Unset, e1s), _ ->
-                        Unset
-                    | (_, e1s), _ -> Set
-        }
-
-    and eval<'t, 'output> (expr : Expr<'t>) (state: PatternState) (render:Render): 't LifecycleStage * 'output list = pmatch (pattern<'t, 'output> state render) expr
     
 //type Setting<'t> =
 //    Const<'t>: 't -> Setting<'t>
@@ -146,51 +108,16 @@ module Debug =
 // 'R is a "free" variable to make GDT eval work, will be constrained to be equal to 't but
 //    should not be referenced directly in 
 type ISetting<'t> =
-    abstract member Match: IPatternMatch<'t, 'r> -> 'r LifecycleStage
+    abstract member Match: IPatternMatch<'t, 'r> -> 'r LifecycleStage * 'output list
 and IPatternMatch<'t, 'r> =
-    abstract member Const: 't -> 'r LifecycleStage
-    abstract member Choice: ISetting<'t> list -> 'r LifecycleStage
-    abstract member App<'s> : ISetting<'s -> 't> * ISetting<'s> -> 'r LifecycleStage
+    abstract member Const: 't -> 'r LifecycleStage * 'output list
+    abstract member Choice: ISetting<'t> list -> 'r LifecycleStage * 'output list
+    abstract member App1 : ISetting<'s -> 't> -> ISetting<'s> -> 'r LifecycleStage * 'output list
+    abstract member App2 : ISetting<'s1*'s2 -> 't> -> ISetting<'s1> -> ISetting<'s2> -> 'r LifecycleStage * 'output list
 type Render<'output> = 
     abstract member Render: 't1 -> isSelected:bool -> 'output
 and HashCode = int
 and PatternState = Map<HashCode, obj>
-
-let pmatch (pattern : IPatternMatch<'t, 'r>) (x : ISetting<'t>) = x.Match pattern
-let rec pattern<'t> =
-    {
-        new IPatternMatch<'t, 't> with
-            member __.Const x = Complete x
-            member __.Choice options = notImpl()
-            member __.App(f, arg) =
-                let x = eval arg
-                let y = eval f
-                notImpl()
-    }
-and eval<'t> (expr : ISetting<'t>) (state:PatternState): 't LifecycleStage = pmatch (pattern<'t>) expr
-
-let pmatch (pattern : IPatternMatch<'t, 'r>) (x : ISetting<'t>) = x.Match pattern
-let rec pattern<'t, 'state> (state: 'state) =
-    {
-            new IPatternMatch<'t, 't> with
-                member __.Const x = x
-                member __.Choice options = notImpl()
-                    //let current = (state: Map<int, obj>) |> Map.tryFind (options.GetHashCode()) |> Option.bind (function :? ISetting<'t> as v -> Some v | _ -> None)
-                    //let elements = [
-                    //    ]
-                    //match current with
-                    //| Some (child: ISetting<'t>) -> 
-                    //    let (r:'t LifecycleStage), childElements = eval state child
-                    //    r, elements@childElements
-                    //| None -> Unset, elements
-                member __.App(f, arg) =
-                    let x = eval(arg, state)
-                    let y = eval(f, state)
-                    notImpl()
-                //member __.App2 f arg1 arg2 = notImpl()
-        }
-and eval<'t, 'state> (setting : ISetting<'t>, state: 'state) : 't = 
-    pmatch (pattern<'t, 'state> state) setting
 
 let compose render children (input: 'r LifecycleStage) =
     input, [render input]@children
@@ -237,52 +164,36 @@ let wizard =
 type StringRender() = 
     interface Render<string> with
         member this.Render v isSelected = sprintf "%s%A" (if isSelected then "+" else " ") v
-let render = StringRender() :> Render<string>
-let state : PatternState = Map.empty
-let pmatch (pattern : IPatternMatch<'t, 'r, string>) (x : ISetting<'t>) = x.Match pattern
-let rec eval<'t> (setting : ISetting<'t>) : 't LifecycleStage * _ = 
-    pmatch (pattern<'t>) setting
-and pattern<'t> =
-    {
-            new IPatternMatch<'t, 't, string> with
-                member __.Const x = Complete x, []
-                member __.Choice options = 
-                    let current = state |> Map.tryFind (options.GetHashCode()) |> Option.bind (function :? ISetting<'t> as v -> Some v | _ -> None)
-                    let elements = [
-                        for o in options do
-                            yield render.Render o (current = Some o)
-                        ]
-                    match current with
-                    | Some (child: ISetting<'t>) -> 
-                        let (r:'t LifecycleStage), childElements = eval child
-                        r, elements@childElements
-                    | None -> Unset, elements
-                member __.App1 (f: ISetting<'s -> 't>) (arg: ISetting<'s>) =
-                    let x = f |> eval
-                    //let y = eval<'s> arg
 
-                    //match eval f, eval arg with
-                    //| (Complete f, children1), (Complete arg, children2) ->
-                    //    //Complete (f arg), children1@children2
-                    //    notImpl()
-                    //| _ -> Unset, []
-                    notImpl()
-                    //let current = state |> Map.tryFind (options.GetHashCode()) |> Option.bind (function :? ISetting<'t> as v -> Some v | _ -> None)
-                    //eval 
-                    //let elements = [
-                    //    for o in options do
-                    //        yield render.Render o (current = Some o)
-                    //    ]
-                    //let result = 
-                    //    match current with
-                    //    | Some v -> Complete (unbox<'t> v)
-                    //    | None -> Unset
-                    //result, elements
-    
-                member __.App2 f arg1 arg2 = notImpl()
-        }
-let set = c (fun x -> x + 1)
-let y = eval set
+let pmatch (pattern : IPatternMatch<'t, 'R>) (x : ISetting<'t>) = x.Match pattern
+let rec pattern<'t, 'out> (state: PatternState) (render:Render<'out>) =
+    let assertOutputType x = x :> obj :?> 'output list // type system can't prove that 'output and 'out are the same type, so we assert it by casting because it always will be
+    {
+        new IPatternMatch<'t, 't> with
+            member __.Const x = Complete x, []
+            member __.Choice options = 
+                let current = state |> Map.tryFind (options.GetHashCode()) |> Option.bind (function :? ISetting<'t> as v -> Some v | _ -> None)
+                let elements = [
+                    for o in options do
+                        yield (render.Render o (current = Some o))
+                    ]
+                match current with
+                | Some (child: ISetting<'t>) -> 
+                    let (r:'t LifecycleStage), childElements = eval child state render
+                    r, (assertOutputType elements)@(assertOutputType childElements)
+                | None -> Unset, assertOutputType elements
+            member __.App1 f x = 
+                match (eval f state render), (eval x state render) with
+                | (Complete f, e1s), (Complete x, e2s) ->
+                    Complete (f x), assertOutputType (e1s@e2s)
+                | (Unset, e1s), _ ->
+                    Unset, assertOutputType e1s
+                | (_, e1s), _ -> Set, assertOutputType e1s
+            member __.App2 f arg arg2 = notImpl()
+    }
+
+and eval<'t, 'output> (setting : ISetting<'t>) (state: PatternState) (render:Render<'output>): 't LifecycleStage * 'output list = pmatch (pattern<'t, 'output> state render) setting
+
 eval wizard
 eval (c "hello") 
 eval (c 123) 
