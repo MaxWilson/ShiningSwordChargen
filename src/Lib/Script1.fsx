@@ -117,7 +117,15 @@ module Debug =
         {
             new IPatternMatch<'t, 't> with
                 member __.Const x = Complete x, []
-                member __.Choice options = notImpl()
+                member __.Choice options = 
+                    let current = state |> Map.tryFind (options.GetHashCode()) |> Option.bind (function :? ISetting<'t> as v -> Some v | _ -> None)
+                    let elements = [
+                        ]
+                    match current with
+                    | Some (child: Expr<'t>) -> 
+                        let (r:'t LifecycleStage), childElements = eval child state render
+                        r, elements@childElements
+                    | None -> Unset, elements
                 member __.App f x = 
                     match (eval f state render), (eval x state render) with
                     | (Complete f, e1s), (Complete x, e2s) ->
