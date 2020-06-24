@@ -113,18 +113,20 @@ module Debug =
     and PatternState = Map<HashCode, obj>
     
     let pmatch (pattern : IPatternMatch<'t, 'R>) (x : Expr<'t>) = x.Match pattern
-    let rec pattern<'t, 'output> (state: PatternState) (render:Render<string>) =
+    let rec pattern<'t> (state: PatternState) (render:Render<string>) =
         {
             new IPatternMatch<'t, 't> with
                 member __.Const x = Complete x, []
                 member __.Choice options = 
-                    let current = state |> Map.tryFind (options.GetHashCode()) |> Option.bind (function :? ISetting<'t> as v -> Some v | _ -> None)
-                    let elements = [
+                    let current = state |> Map.tryFind (options.GetHashCode()) |> Option.bind (function :? Expr<'t> as v -> Some v | _ -> None)
+                    let elements: 'output list = [
+                        for o in options do
+                            yield render.Render o (current = Some o) |> unbox
                         ]
                     match current with
                     | Some (child: Expr<'t>) -> 
                         let (r:'t LifecycleStage), childElements = eval child state render
-                        r, elements@childElements
+                        r, (unbox elements)@childElements
                     | None -> Unset, elements
                 member __.App f x = 
                     match (eval f state render), (eval x state render) with
@@ -135,7 +137,7 @@ module Debug =
                     | (_, e1s), _ -> Set, e1s
         }
 
-    and eval<'t, 'output> (expr : Expr<'t>) (state: PatternState) (render:Render<string>): 't LifecycleStage * 'output list = pmatch (pattern<'t, 'output> state render) expr
+    and eval<'t, 'output> (expr : Expr<'t>) (state: PatternState) (render:Render<string>): 't LifecycleStage * 'output list = pmatch (pattern<'t> state render) expr
     
 //type Setting<'t> =
 //    Const<'t>: 't -> Setting<'t>
