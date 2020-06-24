@@ -102,25 +102,32 @@ type 't LifecycleStage = Unset | Set | Complete of 't
 
 module Debug = 
     type Expr<'t> =
-        abstract member Match: IPatternMatch<'t, 'r> ->'r
+        abstract member Match: IPatternMatch<'t, 'r> -> 'r LifecycleStage * 'output list
     and IPatternMatch<'t, 'r> =
-        abstract member Const: 't -> 'r
-        abstract member Choice: Expr<'t> list -> 'r
-        abstract member App<'s> : Expr<'s -> 't> -> Expr<'s> -> 'r
+        abstract member Const: 't -> 'r LifecycleStage * 'output list
+        abstract member Choice: Expr<'t> list -> 'r LifecycleStage * 'output list
+        abstract member App : Expr<'s -> 't> -> Expr<'s> -> 'r LifecycleStage * 'output list
+    type Render<'output> = 
+        abstract member Render: 't1 -> isSelected:bool -> 'output
+    and HashCode = int
+    and PatternState = Map<HashCode, obj>
+    
     let pmatch (pattern : IPatternMatch<'t, 'R>) (x : Expr<'t>) = x.Match pattern
-    let rec pattern<'t> =
+    let rec pattern<'t, 'output> (state: PatternState) (render:Render<string>) =
         {
             new IPatternMatch<'t, 't> with
-                member __.Const x = x
+                member __.Const x = Complete x, []
                 member __.Choice options = notImpl()
                 member __.App f x = 
-                    //(eval f) (eval x)
-                    let x = eval f
-                    notImpl()
+                    match (eval f state render), (eval x state render) with
+                    | (Complete f, e1s), (Complete x, e2s) ->
+                        Complete (f x), e1s@e2s
+                    | (Unset, e1s), _ ->
+                        Unset, e1s
+                    | (_, e1s), _ -> Set, e1s
         }
 
-    and eval<'t> (expr : Expr<'t>) : 't = pmatch pattern<'t> expr
-
+    and eval<'t, 'output> (expr : Expr<'t>) (state: PatternState) (render:Render<string>): 't LifecycleStage * 'output list = pmatch (pattern<'t, 'output> state render) expr
     
 //type Setting<'t> =
 //    Const<'t>: 't -> Setting<'t>
@@ -130,28 +137,28 @@ module Debug =
 // 'R is a "free" variable to make GDT eval work, will be constrained to be equal to 't but
 //    should not be referenced directly in 
 type ISetting<'t> =
-    abstract member Match: IPatternMatch<'t, 'r> -> 'r
+    abstract member Match: IPatternMatch<'t, 'r> -> 'r LifecycleStage
 and IPatternMatch<'t, 'r> =
-    abstract member Const: 't -> 'r
-    abstract member Choice: ISetting<'t> list -> 'r
-    abstract member App<'s> : ISetting<'s -> 't> * ISetting<'s> -> 'r
+    abstract member Const: 't -> 'r LifecycleStage
+    abstract member Choice: ISetting<'t> list -> 'r LifecycleStage
+    abstract member App<'s> : ISetting<'s -> 't> * ISetting<'s> -> 'r LifecycleStage
 type Render<'output> = 
     abstract member Render: 't1 -> isSelected:bool -> 'output
 and HashCode = int
 and PatternState = Map<HashCode, obj>
 
 let pmatch (pattern : IPatternMatch<'t, 'r>) (x : ISetting<'t>) = x.Match pattern
-let rec pattern<'t, 'output> state (render: Render<'output>) =
+let rec pattern<'t> =
     {
         new IPatternMatch<'t, 't> with
-            member __.Const x = x
+            member __.Const x = Complete x
             member __.Choice options = notImpl()
             member __.App(f, arg) =
-                let x = eval arg state render
-                let y = eval f state render
+                let x = eval arg
+                let y = eval f
                 notImpl()
     }
-and eval<'t,'output> (expr : ISetting<'t>) (state:PatternState) (render: Render<'output>): 't = pmatch (pattern<'t,'output> state render) expr
+and eval<'t> (expr : ISetting<'t>) (state:PatternState): 't LifecycleStage = pmatch (pattern<'t>) expr
 
 let pmatch (pattern : IPatternMatch<'t, 'r>) (x : ISetting<'t>) = x.Match pattern
 let rec pattern<'t, 'state> (state: 'state) =
