@@ -107,13 +107,13 @@ module Debug =
         abstract member Const: 't -> 'r LifecycleStage * 'output list
         abstract member Choice: Expr<'t> list -> 'r LifecycleStage * 'output list
         abstract member App : Expr<'s -> 't> -> Expr<'s> -> 'r LifecycleStage * 'output list
-    type Render<'output> = 
-        abstract member Render: 't1 -> isSelected:bool -> 'output
+    type Render = 
+        abstract member Render: 't1 -> isSelected:bool -> obj
     and HashCode = int
     and PatternState = Map<HashCode, obj>
     
     let pmatch (pattern : IPatternMatch<'t, 'R>) (x : Expr<'t>) = x.Match pattern
-    let rec pattern<'t> (state: PatternState) (render:Render<string>) =
+    let rec pattern<'t> (state: PatternState) (render:Render) =
         {
             new IPatternMatch<'t, 't> with
                 member __.Const x = Complete x, []
@@ -137,7 +137,7 @@ module Debug =
                     | (_, e1s), _ -> Set, e1s
         }
 
-    and eval<'t, 'output> (expr : Expr<'t>) (state: PatternState) (render:Render<string>): 't LifecycleStage * 'output list = pmatch (pattern<'t> state render) expr
+    and eval<'t, 'output> (expr : Expr<'t>) (state: PatternState) (render:Render): 't LifecycleStage * 'output list = pmatch (pattern<'t> state render) expr
     
 //type Setting<'t> =
 //    Const<'t>: 't -> Setting<'t>
