@@ -154,7 +154,7 @@ let rec pattern<'t> =
 and eval<'t> (expr : ISetting<'t>) : 't = pmatch pattern<'t> expr
 
 let pmatch (pattern : IPatternMatch<'t, 'r>) (x : ISetting<'t>) = x.Match pattern
-let rec pattern<'t> =
+let rec pattern<'t> state =
     {
             new IPatternMatch<'t, 't> with
                 member __.Const x = x
@@ -168,13 +168,13 @@ let rec pattern<'t> =
                     //    r, elements@childElements
                     //| None -> Unset, elements
                 member __.App f arg =
-                    let x = eval arg
-                    let y = eval f
+                    let x = eval arg state
+                    let y = eval f state
                     notImpl()
                 //member __.App2 f arg1 arg2 = notImpl()
         }
-and eval<'t> (setting : ISetting<'t>) : 't = 
-    pmatch (pattern<'t>) setting
+and eval<'t> (setting : ISetting<'t>) state : 't = 
+    pmatch (pattern<'t> state) setting
 
 let compose render children (input: 'r LifecycleStage) =
     input, [render input]@children
