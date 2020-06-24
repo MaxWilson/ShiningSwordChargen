@@ -124,22 +124,26 @@ let compose render children (input: 'r LifecycleStage) =
 type SettingConst<'t>(v: 't) =
     interface ISetting<'t> with
         member this.Match m = m.Const v
+    override this.ToString() = sprintf "%A" v
 type SettingChoice<'t>(values: ISetting<'t> list) =
     interface ISetting<'t> with
         member this.Match m = m.Choice values
+    override this.ToString() = values |> List.map (fun v -> v.ToString()) |> fun vs -> System.String.Join(", ", vs) |> sprintf "[%s]"
 // returns a value only once the user has picked a value
-type SettingCtor<'t,'s>(ctor: ISetting<'s -> 't>, arg: ISetting<'s>) =
+type SettingCtor<'t,'s>(label: string, ctor: ISetting<'s -> 't>, arg: ISetting<'s>) =
     interface ISetting<'t> with
         member this.Match m = m.App1 ctor arg
+    override this.ToString() = label
 // returns a value only once the user has picked a value
-type SettingCtor2<'t,'s1,'s2>(ctor: ISetting<'s1*'s2 -> 't>, arg1: ISetting<'s1>, arg2: ISetting<'s2>) =
+type SettingCtor2<'t,'s1,'s2>(label: string, ctor: ISetting<'s1*'s2 -> 't>, arg1: ISetting<'s1>, arg2: ISetting<'s2>) =
     interface ISetting<'t> with
         member this.Match m = m.App2 ctor arg1 arg2
+    override this.ToString() = label
 let c v = SettingConst(v) :> ISetting<_>
 let choose options = SettingChoice(options) :> ISetting<_>
-let ctor(f, arg)= SettingCtor(f,arg) :> ISetting<_>
-let ctor2(f, arg1, arg2)= SettingCtor2(f, arg1, arg2) :> ISetting<_>
-let both(arg1, arg2) = ctor2(c id, arg1, arg2)
+let ctor(label, f, arg)= SettingCtor(label,f,arg) :> ISetting<_>
+let ctor2(label, f, arg1, arg2)= SettingCtor2(label, f, arg1, arg2) :> ISetting<_>
+let both(arg1, arg2) = ctor2("both", c id, arg1, arg2)
 type XanatharDifficulty = Easy | Medium | Hard
 type XanatharType = Solo | Group | Mixed
 type Difficulty = Easy | Medium | Hard | Deadly | Ludicrous
@@ -148,12 +152,12 @@ type Analysis = PureCR | Encounter of EncounterGenerator
 let wizard = 
     choose [
         c PureCR
-        ctor(c Encounter,
+        ctor("Encounter", c Encounter,
             choose [
-                ctor(c Xanathar,
+                ctor("Xanathar", c Xanathar,
                     choose [c XanatharDifficulty.Easy; c XanatharDifficulty.Medium; c XanatharDifficulty.Hard]
                     )
-                ctor(choose [c DMG; c ShiningSword],
+                ctor("DMG/SS", choose [c DMG; c ShiningSword],
                     choose [c Easy; c Medium; c Hard; c Deadly; c Ludicrous]
                     )
                 ])
@@ -194,7 +198,7 @@ let rec pattern<'t, 'out> (state: PatternState) (render:Render<'out>) =
 
 and eval<'t, 'output> (setting : ISetting<'t>) (state: PatternState) (render:Render<'output>): 't LifecycleStage * 'output list = pmatch (pattern<'t, 'output> state render) setting
 
-eval wizard
+eval wizard Map.empty (StringRender())
 eval (c "hello") 
 eval (c 123) 
 let choices = [c 123; c 456]
@@ -203,3 +207,21 @@ eval mySetting (Map.ofSeq []) (StringRender())
 eval mySetting (Map.ofSeq [choices.GetHashCode(), (box choices.Head)]) (StringRender())
 eval (c (fun x -> x + 1)) Map.empty (StringRender())
 
+let choice3 = [c XanatharDifficulty.Easy; c XanatharDifficulty.Medium; c XanatharDifficulty.Hard]
+let choice2 = [
+    ctor(c Xanathar,
+        choose choice3
+        )
+    ctor(choose [c DMG; c ShiningSword],
+        choose [c Easy; c Medium; c Hard; c Deadly; c Ludicrous]
+        )
+    ]
+let choice1 = [
+    c PureCR
+    ctor(c Encounter,
+        choose choice2)
+    ]
+let wizard1 = 
+    choose choice1
+
+eval wizard1 (Map.ofSeq [choice1.GetHashCode(), box choices.[1]]) (StringRender())
