@@ -102,13 +102,13 @@ type 't LifecycleStage = Unset | Set | Complete of 't
 
 module Debug = 
     type Expr<'t> =
-        abstract member Match: IPatternMatch<'t, 'r> -> 'r LifecycleStage * 'output list
+        abstract member Match: IPatternMatch<'t, 'r> -> 'r LifecycleStage
     and IPatternMatch<'t, 'r> =
-        abstract member Const: 't -> 'r LifecycleStage * 'output list
-        abstract member Choice: Expr<'t> list -> 'r LifecycleStage * 'output list
-        abstract member App : Expr<'s -> 't> -> Expr<'s> -> 'r LifecycleStage * 'output list
+        abstract member Const: 't -> 'r LifecycleStage
+        abstract member Choice: Expr<'t> list -> 'r LifecycleStage
+        abstract member App : Expr<'s -> 't> -> Expr<'s> -> 'r LifecycleStage
     type Render = 
-        abstract member Render: 't1 -> isSelected:bool -> obj
+        abstract member Render: 't1 -> isSelected:bool -> unit
     and HashCode = int
     and PatternState = Map<HashCode, obj>
     
@@ -116,28 +116,27 @@ module Debug =
     let rec pattern<'t> (state: PatternState) (render:Render) =
         {
             new IPatternMatch<'t, 't> with
-                member __.Const x = Complete x, []
+                member __.Const x = Complete x
                 member __.Choice options = 
                     let current = state |> Map.tryFind (options.GetHashCode()) |> Option.bind (function :? Expr<'t> as v -> Some v | _ -> None)
-                    let elements: 'output list = [
-                        for o in options do
-                            yield render.Render o (current = Some o) |> unbox
-                        ]
+                    for o in options do
+                        render.Render o (current = Some o)
+
                     match current with
                     | Some (child: Expr<'t>) -> 
                         let (r:'t LifecycleStage), childElements = eval child state render
-                        r, (unbox elements)@childElements
-                    | None -> Unset, elements
+                        r
+                    | None -> Unset
                 member __.App f x = 
                     match (eval f state render), (eval x state render) with
                     | (Complete f, e1s), (Complete x, e2s) ->
-                        Complete (f x), e1s@e2s
+                        Complete (f x)
                     | (Unset, e1s), _ ->
-                        Unset, e1s
-                    | (_, e1s), _ -> Set, e1s
+                        Unset
+                    | (_, e1s), _ -> Set
         }
 
-    and eval<'t, 'output> (expr : Expr<'t>) (state: PatternState) (render:Render): 't LifecycleStage * 'output list = pmatch (pattern<'t> state render) expr
+    and eval<'t, 'output> (expr : Expr<'t>) (state: PatternState) (render:Render): 't LifecycleStage * 'output list = pmatch (pattern<'t, 'output> state render) expr
     
 //type Setting<'t> =
 //    Const<'t>: 't -> Setting<'t>
