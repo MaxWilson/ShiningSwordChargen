@@ -95,6 +95,7 @@ module Example =
 
     eval (app (lam(fun n -> ifThenElse (constant (eval n < 10)) (constant "A") (constant "B"))) (constant 11))
 
+let notImpl() = failwith "Not implemented"
 // Setting lifecycle: unset, set, complete
 type 't LifecycleStage = Unset | Set | Complete of 't
     with static member map f = function Complete v -> Complete (f v) | v -> v
@@ -107,30 +108,32 @@ type 't LifecycleStage = Unset | Set | Complete of 't
 // 'R is a "free" variable to make GDT eval work, will be constrained to be equal to 'T but
 //    should not be referenced directly in 
 type ISetting<'t> =
-    abstract member Match: IPatternMatch<'t,'r> -> 'state -> 'r LifecycleStage * 'output list
+    abstract member Match: IPatternMatch<'t, 'r, 'output> ->'r LifecycleStage * 'output list
 and Render<'output> = 
-    abstract member Render: 's1 -> 'output
-and IPatternMatch<'t,'r> =
+    abstract member Render: 't1 -> isSelected:bool -> 'output
+and HashCode = int
+and PatternState = Map<HashCode, obj>
+and IPatternMatch<'t,'r, 'output> =
     abstract member Const: 't -> 'r LifecycleStage * 'output list
-    abstract member Choice: ISetting<'t> list -> 'state -> 'r LifecycleStage * 'output list
-    abstract member App1: ISetting<'s -> 't> -> ISetting<'s> -> 'state -> 'r LifecycleStage * 'output list
-    abstract member App2: ISetting<'s1*'s2 -> 't> -> ISetting<'s1> -> ISetting<'s2> -> 'state -> 'r LifecycleStage * 'output list
+    abstract member Choice: ISetting<'t> list -> 'r LifecycleStage * 'output list
+    abstract member App1: ISetting<'s -> 't> -> ISetting<'s> -> 'r LifecycleStage * 'output list
+    abstract member App2: ISetting<'s1*'s2 -> 't> -> ISetting<'s1> -> ISetting<'s2> -> 'r LifecycleStage * 'output list
 let compose render children (input: 'r LifecycleStage) =
     input, [render input]@children
 type SettingConst<'t>(v: 't) =
     interface ISetting<'t> with
-        member this.Match m _ = m.Const v
+        member this.Match m = m.Const v
 type SettingChoice<'t>(values: ISetting<'t> list) =
     interface ISetting<'t> with
-        member this.Match m state = m.Choice values state
+        member this.Match m = m.Choice values
 // returns a value only once the user has picked a value
 type SettingCtor<'t,'s>(ctor: ISetting<'s -> 't>, arg: ISetting<'s>) =
     interface ISetting<'t> with
-        member this.Match m state = m.App1 ctor arg state
+        member this.Match m = m.App1 ctor arg
 // returns a value only once the user has picked a value
 type SettingCtor2<'t,'s1,'s2>(ctor: ISetting<'s1*'s2 -> 't>, arg1: ISetting<'s1>, arg2: ISetting<'s2>) =
     interface ISetting<'t> with
-        member this.Match m state = m.App2 ctor arg1 arg2 state
+        member this.Match m = m.App2 ctor arg1 arg2
 let c v = SettingConst(v) :> ISetting<_>
 let choose options = SettingChoice(options) :> ISetting<_>
 let ctor(f, arg)= SettingCtor(f,arg) :> ISetting<_>
@@ -157,13 +160,56 @@ let wizard =
 
 // What is needed now is a way to determine when a given setting has been chosen,
 // probably with some kind of threaded state that pattern can read from.
-let rec pattern<'t,'state,'reactElement> (state: 'state) (render: Render<'reactElement>) =
-    {
-        new IPatternMatch<'t, 't> with
-            member __.Const x = Complete x, []
-            member __.Choice x state = notImpl()
-            member __.App1 f arg state = notImpl()
-            member __.App2 f arg1 arg2 state = notImpl()
-    }
-and eval<'t,'state,'reactElement> (state: 'state) (render: Render<'reactElement>) (setting : ISetting<'t>) : 't LifecycleStage * _ = 
-    setting.Match (pattern<'t,'state,'reactElement> state render) state
+type StringRender() = 
+    interface Render<string> with
+        member this.Render v isSelected = sprintf "%s%A" (if isSelected then "+" else " ") v
+let render = StringRender() :> Render<string>
+let state : PatternState = Map.empty
+let rec eval (setting : ISetting<'t>) : 't LifecycleStage * _ = 
+    setting.Match 
+        {
+            new IPatternMatch<'t, 't, string> with
+                member __.Const x = Complete x, []
+                member __.Choice options = 
+                    let current = state |> Map.tryFind (options.GetHashCode()) |> Option.bind (function :? ISetting<'t> as v -> Some v | _ -> None)
+                    let elements = [
+                        for o in options do
+                            yield render.Render o (current = Some o)
+                        ]
+                    match current with
+                    | Some (child: ISetting<'t>) -> 
+                        let (r:'t LifecycleStage), childElements = eval child
+                        r, elements@childElements
+                    | None -> Unset, elements
+                member __.App1 f arg =
+                    let set = c (fun x -> x + 1)
+                    let y = eval set
+                    //match eval f, eval arg with
+                    //| (Complete f, children1), (Complete arg, children2) ->
+                    //    //Complete (f arg), children1@children2
+                    //    notImpl()
+                    //| _ -> Unset, []
+                    notImpl()
+                    //let current = state |> Map.tryFind (options.GetHashCode()) |> Option.bind (function :? ISetting<'t> as v -> Some v | _ -> None)
+                    //eval 
+                    //let elements = [
+                    //    for o in options do
+                    //        yield render.Render o (current = Some o)
+                    //    ]
+                    //let result = 
+                    //    match current with
+                    //    | Some v -> Complete (unbox<'t> v)
+                    //    | None -> Unset
+                    //result, elements
+    
+                member __.App2 f arg1 arg2 = notImpl()
+        }
+eval wizard Map.empty (StringRender())
+eval (c "hello") Map.empty (StringRender())
+eval (c 123) Map.empty (StringRender())
+let choices = [c 123; c 456]
+let mySetting = choose choices
+eval mySetting (Map.ofSeq []) (StringRender())
+eval mySetting (Map.ofSeq [choices.GetHashCode(), (box choices.Head)]) (StringRender())
+eval (c (fun x -> x + 1)) Map.empty (StringRender())
+
