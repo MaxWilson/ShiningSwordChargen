@@ -4,6 +4,8 @@
 ///   Render<output>: typically Render<ReactElement>, used to format output for user to look at/interact with to update wizardState.
 ///   WizardState: the current choices that have been made by the user, in the form of Choice hashcodes -> index mapping.
 module AutoWizard
+open Optics
+open Optics.Operations
 
 type 't LifecycleStage = Unset | Set | Complete of 't
     with static member map f = function Complete v -> Complete (f v) | v -> v
@@ -27,11 +29,10 @@ and IPatternMatch<'t> =
     abstract member Choice: Setting<'t> list -> 't LifecycleStage * 'output list
     abstract member App1 : Setting<'s -> 't> -> Setting<'s> -> 't LifecycleStage * 'output list
     abstract member App2 : Setting<'s1*'s2 -> 't> -> Setting<'s1> -> Setting<'s2> -> 't LifecycleStage * 'output list
-type Render<'output> = 
-    abstract member Render: options:'t1 list -> current: ChoiceState option -> 'output list
+type Render<'appState, 'output> = 
+    abstract member Render: options:'t1 list -> lens: Optics.Lens<'appState, ChoiceState option> -> 'output list
 and ChoiceState = ChoiceIndex of int
 and HashCode = int
-and WizardState = Map<HashCode, ChoiceState>
 
 let compose render children (input: 't LifecycleStage) =
     input, [render input]@children
@@ -81,29 +82,35 @@ let wizard =
         ]
 
 let pmatch (pattern : IPatternMatch<'t>) (x : Setting<'t>) = x.Match pattern
-let rec pattern<'t, 'out> (state: WizardState) (render:Render<'out>) =
+let rec pattern<'t, 'appState, 'out> (getLens: HashCode -> Optics.Lens<'appState, ChoiceState option>) (render:Render<'appState, 'out>) (state: 'appState) =
     let assertOutputType x = x :> obj :?> 'output // type system can't prove that 'output and 'out are the same type, so we assert it by casting because it always will be
     {
         new IPatternMatch<'t> with
             member __.Const x = Complete x, []
             member __.Choice options = 
-                let currentIx = state |> Map.tryFind (options.GetHashCode())
+                let currentIx = state |> read (getLens (options.GetHashCode()))
                 let elements = 
-                    render.Render options currentIx
+                    render.Render options (getLens (options.GetHashCode()))
                 let current = currentIx |> Option.map (fun (ChoiceIndex ix) -> options.[ix])
                 match current with
                 | Some (child: Setting<'t>) -> 
-                    let (r:'t LifecycleStage), childElements = eval child state render
+                    let (r:'t LifecycleStage), childElements = eval(child, getLens, render, state)
                     r, (assertOutputType elements)@(assertOutputType childElements)
                 | None -> Unset, assertOutputType elements
-            member __.App1 f x = 
-                match (eval f state render), (eval x state render) with
+            member __.App1 f arg1 = 
+                match (eval(f, getLens, render, state)), (eval(arg1, getLens, render, state)) with
                 | (Complete f, e1s), (Complete x, e2s) ->
                     Complete (f x), assertOutputType (e1s@e2s)
                 | (Unset, e1s), _ ->
                     Unset, assertOutputType e1s
                 | (_, e1s), (_, e2s) -> Set, assertOutputType (e1s@e2s)
-            member __.App2 f arg arg2 = notImpl()
+            member __.App2 f arg1 arg2 = 
+                match (eval(f, getLens, render, state)), (eval(arg1, getLens, render, state)), (eval(arg2, getLens, render, state)) with
+                | (Complete f, e1s), (Complete arg1, e2s), (Complete arg2, e3s) ->
+                    Complete (f (arg1, arg2)), assertOutputType (e1s@e2s@e3s)
+                | (Unset, e1s), _, _ ->
+                    Unset, assertOutputType e1s
+                | (_, e1s), (_, e2s), (_, e3s) -> Set, assertOutputType (e1s@e2s@e3s)
     }
 
-and eval<'t, 'output> (setting : Setting<'t>) (state: WizardState) (render:Render<'output>): 't LifecycleStage * 'output list = pmatch (pattern<'t, 'output> state render) setting
+and eval<'t, 'appState, 'output> (setting : Setting<'t>, getLens: HashCode -> Optics.Lens<'appState, ChoiceState option>, render:Render<'appState, 'output>, state: 'appState) : 't LifecycleStage * 'output list = pmatch (pattern<'t, 'appState, 'output> getLens render state) setting

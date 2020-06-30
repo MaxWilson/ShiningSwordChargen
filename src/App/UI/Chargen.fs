@@ -84,6 +84,13 @@ let viewCharacter (api:API<_>) (name_: Lens<_,string>) sex stats mode model =
             Html.div (sprintf "%s: %d" (Stat.toString st) (stats |> read (Stat.lens st)))
         ]
 
+type ReactRender() =
+    interface AutoWizard.Render<ReactElement> with
+        member this.Render options lens currentChoice = [
+                for o in options |> List.indexed do
+                    Html.button [prop.text (o.ToString()); onClick ]
+            ]
+
 let view (api: API<_>) model =
     let state = model |> read api.chargen_
     let cancel =
