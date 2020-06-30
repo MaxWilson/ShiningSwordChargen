@@ -4,18 +4,20 @@ open Optics.Operations
 open Domain
 open Domain.Model
 open Feliz
+open AutoWizard
 
 type ViewMode = Creating | Selecting | Viewing
 type EditMode = Rearranging | Renaming | AssigningFeats
-
+type WizardChoices = Map<HashCode, ChoiceState>
 type State = {
     sex: Sex option
     stats: Stats option
     name: string option
     viewMode: ViewMode option
     editMode: EditMode option
+    wizardChoices: WizardChoices
     }
-    with static member fresh = { sex = None; stats = None; name = None; viewMode = None; editMode = None }
+    with static member fresh = { sex = None; stats = None; name = None; viewMode = None; editMode = None; wizardChoices = Map.empty }
 
 let toCharSheet (state: State) : Creature =
     {
@@ -37,6 +39,7 @@ let sex_ = lens (fun (d: State) -> d.sex) (fun v d -> { d with sex = v })
 let name_ = lens (fun (d: State) -> d.name) (fun v d -> { d with name = v })
 let viewMode_ = lens (fun (d: State) -> d.viewMode) (fun v d -> { d with viewMode = v })
 let editMode_ = lens (fun (d: State) -> d.editMode) (fun v d -> { d with editMode = v })
+let wizardChoices_ = lens (fun (d: State) -> d.wizardChoices) (fun v d -> { d with wizardChoices = v })
 
 let generateName sex state =
     let name =
@@ -84,14 +87,35 @@ let viewCharacter (api:API<_>) (name_: Lens<_,string>) sex stats mode model =
             Html.div (sprintf "%s: %d" (Stat.toString st) (stats |> read (Stat.lens st)))
         ]
 
-type ReactRender() =
-    interface AutoWizard.Render<ReactElement> with
-        member this.Render options lens currentChoice = [
-                for o in options |> List.indexed do
-                    Html.button [prop.text (o.ToString()); onClick ]
+let renderWizard (api: API<'model>) model setting =
+    let render =
+        {
+        new AutoWizard.Render<'model, ReactElement> with
+        member this.Render options lens = [
+                Html.div [
+                    let currentChoice = model |> read lens
+                    for ix, o in options |> List.indexed do
+                        Html.button [
+                            prop.text (o.ToString());
+                            prop.style [if Some (ChoiceIndex ix) = currentChoice then style.color.red]
+                            prop.onClick (fun ev -> ev.preventDefault(); api.updateCmd(write lens (ChoiceIndex ix |> Some)))
+                            ]
+                        ]
             ]
+        }
+    let getLens hashCode =
+        let hash_ =
+            Lens.create
+                (Map.tryFind hashCode)
+                (function None -> Map.remove hashCode | Some v -> Map.add hashCode v)
+        api.chargen_ => wizardChoices_ => hash_
 
-let view (api: API<_>) model =
+    AutoWizard.eval(setting, getLens, render, model)
+
+let tup x y = ctor2("Invisible", c (fun(x,y) -> (x,y)), x, y)
+let wizard = tup (choose [c "Template"; c "Custom"]) (tup (choose [c Male; c Female]) (choose [c "Barbarian"; c "Samurai"]))
+
+let view (api: API<_>) (model: 'model) =
     let state = model |> read api.chargen_
     let cancel =
         Html.button [
@@ -106,45 +130,50 @@ let view (api: API<_>) model =
             let update t = api.updateCmd (over api.chargen_ t)
             let set (lens: Lens<_,_>) v = api.updateCmd (write (api.chargen_ => lens) (Some v))
 
-            Html.h1 "New character"
-            match state.sex with
-            | None ->
-                Html.div "Choose sex"
-                Html.button [
-                    prop.onClick (fun _ -> (set sex_ Male))
-                    prop.text "Male"
-                    ]
-                Html.button [
-                    prop.onClick (fun _ -> (set sex_ Female))
-                    prop.text "Female"
-                    ]
-                cancel
-            | Some sex ->
-                Html.div "Choose stat rolling method"
-                match state.stats with
+            let choice, elements = renderWizard api model wizard
+            match choice with
+            | Unset | Set ->
+                React.fragment elements
+            | Complete _ ->
+                Html.h1 "New character"
+                match state.sex with
                 | None ->
+                    Html.div "Choose sex"
                     Html.button [
-                        prop.onClick (fun _ -> update (write stats_ (Domain.Chargen.roll3d6InOrder() |> Some) >> generateName sex))
-                        prop.text "Roll 3d6"
+                        prop.onClick (fun _ -> (set sex_ Male))
+                        prop.text "Male"
                         ]
                     Html.button [
-                        prop.onClick (fun _ -> update (write stats_ (Domain.Chargen.roll4d6k3() |> Some) >> generateName sex))
-                        prop.text "Roll 4d6k3"
-                        ]
-                    Html.button [
-                        prop.onClick (fun _ -> update (write stats_ (Domain.Chargen.standardArray() |> Some) >> generateName sex))
-                        prop.text "Standard array"
+                        prop.onClick (fun _ -> (set sex_ Female))
+                        prop.text "Female"
                         ]
                     cancel
-                | Some stats ->
-                    viewCharacter api (api.chargen_ => name_ => Option.some__) sex stats state.editMode model
-                    Html.button [
-                        prop.onClick (fun _ -> api.updateCmd(fun model ->
-                            model
-                            |> over api.roster_ (fun entries -> (model |> read api.chargen_ |> toCharSheet)::entries)
-                            |> write api.chargen_ State.fresh))
-                        sprintf "Abandon %s" state.name.Value |> prop.text
-                        ]
+                | Some sex ->
+                    Html.div "Choose stat rolling method"
+                    match state.stats with
+                    | None ->
+                        Html.button [
+                            prop.onClick (fun _ -> update (write stats_ (Domain.Chargen.roll3d6InOrder() |> Some) >> generateName sex))
+                            prop.text "Roll 3d6"
+                            ]
+                        Html.button [
+                            prop.onClick (fun _ -> update (write stats_ (Domain.Chargen.roll4d6k3() |> Some) >> generateName sex))
+                            prop.text "Roll 4d6k3"
+                            ]
+                        Html.button [
+                            prop.onClick (fun _ -> update (write stats_ (Domain.Chargen.standardArray() |> Some) >> generateName sex))
+                            prop.text "Standard array"
+                            ]
+                        cancel
+                    | Some stats ->
+                        viewCharacter api (api.chargen_ => name_ => Option.some__) sex stats state.editMode model
+                        Html.button [
+                            prop.onClick (fun _ -> api.updateCmd(fun model ->
+                                model
+                                |> over api.roster_ (fun entries -> (model |> read api.chargen_ |> toCharSheet)::entries)
+                                |> write api.chargen_ State.fresh))
+                            sprintf "Abandon %s" state.name.Value |> prop.text
+                            ]
         | Some Selecting ->
             let selectFor ix (sheet: Creature) =
                 Html.button [

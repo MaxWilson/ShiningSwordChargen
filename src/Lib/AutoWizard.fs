@@ -59,27 +59,6 @@ let choose options = SettingChoice(options) :> Setting<_>
 let ctor(label, f, arg)= SettingCtor(label,f,arg) :> Setting<_>
 let ctor2(label, f, arg1, arg2)= SettingCtor2(label, f, arg1, arg2) :> Setting<_>
 let both(arg1, arg2) = ctor2("both", c id, arg1, arg2)
-type XanatharDifficulty = Easy | Medium | Hard
-type XanatharType = Solo | Group | Mixed
-type Difficulty = Easy | Medium | Hard | Deadly | Ludicrous
-type EncounterGenerator = Xanathar of XanatharDifficulty | DMG of Difficulty | ShiningSword of Difficulty
-type Analysis = PureCR | Encounter of EncounterGenerator
-let wizard = 
-    choose [
-        c PureCR
-        ctor("Encounter", c Encounter,
-            choose [
-                ctor("Xanathar", c Xanathar,
-                    choose [c XanatharDifficulty.Easy; c XanatharDifficulty.Medium; c XanatharDifficulty.Hard]
-                    )
-                ctor("DMG", c DMG,
-                    choose [c Easy; c Medium; c Hard; c Deadly; c Ludicrous]
-                    )
-                ctor("SS", c ShiningSword,
-                    choose [c Easy; c Medium; c Hard; c Deadly; c Ludicrous]
-                    )
-                ])
-        ]
 
 let pmatch (pattern : IPatternMatch<'t>) (x : Setting<'t>) = x.Match pattern
 let rec pattern<'t, 'appState, 'out> (getLens: HashCode -> Optics.Lens<'appState, ChoiceState option>) (render:Render<'appState, 'out>) (state: 'appState) =
