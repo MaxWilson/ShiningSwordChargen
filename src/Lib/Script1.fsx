@@ -15,43 +15,43 @@ module Example =
 
     [<AbstractClass>]
     type Expr<'t> internal () =
-        abstract Match : IPatternMatch<'t, 'R> -> 'R
+        abstract Match : IPatternMatch<'t> -> 't
 
     // instaces of IPatternMatch encode a match expression
 
-    and IPatternMatch<'t, 'R> =
-        abstract Const : 't -> 'R
-        abstract Add : Expr<int> -> Expr<int> -> 'R
-        abstract IfThenElse : Expr<bool> -> Expr<'t> -> Expr<'t> -> 'R
-        abstract App<'S> : Expr<'S -> 't> -> Expr<'S> -> 'R
-        abstract Lam<'t1, 't2> : (Expr<'t1> -> Expr<'t2>) -> 'R
-        abstract Fix<'t1, 't2> : Expr<('t1 -> 't2) -> 't1 -> 't2> -> 'R
+    and IPatternMatch<'t> =
+        abstract Const : 't -> 't
+        abstract Add : Expr<int> -> Expr<int> -> 't
+        abstract IfThenElse : Expr<bool> -> Expr<'t> -> Expr<'t> -> 't
+        abstract App<'S> : Expr<'S -> 't> -> Expr<'S> -> 't
+        abstract Lam<'t1, 't2> : (Expr<'t1> -> Expr<'t2>) -> 't
+        abstract Fix<'t1, 't2> : Expr<('t1 -> 't2) -> 't1 -> 't2> -> 't
 
     // concrete case implementations
 
     type internal Const<'t>(value : 't) =
         inherit Expr<'t> ()
-        override __.Match (m : IPatternMatch<'t, 'R>) = m.Const value
+        override __.Match (m : IPatternMatch<'t>) = m.Const value
 
     type internal Add(left : Expr<int>, right : Expr<int>) =
         inherit Expr<int> ()
-        override __.Match (m : IPatternMatch<int, 'R>) = m.Add left right
+        override __.Match (m : IPatternMatch<int>) = m.Add left right
 
     type internal IfThenElse<'t>(b : Expr<bool>, l : Expr<'t>, r : Expr<'t>) =
         inherit Expr<'t> ()
-        override __.Match (m : IPatternMatch<'t, 'R>) = m.IfThenElse b l r
+        override __.Match (m : IPatternMatch<'t>) = m.IfThenElse b l r
 
     type internal App<'t,'S> (f : Expr<'S -> 't>, x : Expr<'S>) =
         inherit Expr<'t> ()
-        override __.Match (m : IPatternMatch<'t, 'R>) = m.App f x
+        override __.Match (m : IPatternMatch<'t>) = m.App f x
 
     type internal Lam<'t1,'t2> (f : Expr<'t1> -> Expr<'t2>) =
         inherit Expr<'t1 -> 't2> ()
-        override __.Match (m : IPatternMatch<'t1 -> 't2, 'R>) = m.Lam f
+        override __.Match (m : IPatternMatch<'t1 -> 't2>) = m.Lam f
 
     type internal Fix<'t, 'S> (f : Expr<('t -> 'S) -> 't -> 'S>) =
         inherit Expr<'t -> 'S> ()
-        override __.Match (m : IPatternMatch<'t -> 'S, 'R>) = m.Fix f
+        override __.Match (m : IPatternMatch<'t -> 'S>) = m.Fix f
 
     // constructor api
     let constant x = Const<_>(x) :> Expr<_>
@@ -61,7 +61,7 @@ module Example =
     let lam f = Lam<_,_>(f) :> Expr<_>
     let fix f = Fix<_,_>(f) :> Expr<_>
 
-    let pmatch (pattern : IPatternMatch<'t, 'R>) (x : Expr<'t>) = x.Match pattern
+    let pmatch (pattern : IPatternMatch<'t>) (x : Expr<'t>) = x.Match pattern
 
     // example : implement evaluator using pattern match
 
@@ -69,7 +69,7 @@ module Example =
 
     let rec pattern<'t> =
         {
-            new IPatternMatch<'t, 't> with
+            new IPatternMatch<'t> with
                 member __.Const x = x
                 member __.Add x y = unbox(eval x + eval y)
                 member __.IfThenElse b x y = if eval b then eval x else eval y
@@ -105,21 +105,21 @@ type 't LifecycleStage = Unset | Set | Complete of 't
 //    Choice : Setting<'t List> -> Setting<'t>
 //    App1 :    Setting<'S -> 't> -> Setting<'S> -> Setting<'t>
 //    App1 :    Setting<'S1*'S2 -> 't> -> Setting<'S1> -> Setting<'S2> -> Setting<'t>
-// 'R is a "free" variable to make GDT eval work, will be constrained to be equal to 't but
+// 't is a "free" variable to make GDT eval work, will be constrained to be equal to 't but
 //    should not be referenced directly in 
 type ISetting<'t> =
-    abstract member Match: IPatternMatch<'t, 'r> -> 'r LifecycleStage * 'output list
-and IPatternMatch<'t, 'r> =
-    abstract member Const: 't -> 'r LifecycleStage * 'output list
-    abstract member Choice: ISetting<'t> list -> 'r LifecycleStage * 'output list
-    abstract member App1 : ISetting<'s -> 't> -> ISetting<'s> -> 'r LifecycleStage * 'output list
-    abstract member App2 : ISetting<'s1*'s2 -> 't> -> ISetting<'s1> -> ISetting<'s2> -> 'r LifecycleStage * 'output list
+    abstract member Match: IPatternMatch<'t> -> 't LifecycleStage * 'output list
+and IPatternMatch<'t> =
+    abstract member Const: 't -> 't LifecycleStage * 'output list
+    abstract member Choice: ISetting<'t> list -> 't LifecycleStage * 'output list
+    abstract member App1 : ISetting<'s -> 't> -> ISetting<'s> -> 't LifecycleStage * 'output list
+    abstract member App2 : ISetting<'s1*'s2 -> 't> -> ISetting<'s1> -> ISetting<'s2> -> 't LifecycleStage * 'output list
 type Render<'output> = 
     abstract member Render: 't1 -> isSelected:bool -> 'output
 and HashCode = int
-and PatternState = Map<HashCode, obj>
+and PatternState = Map<HashCode, int>
 
-let compose render children (input: 'r LifecycleStage) =
+let compose render children (input: 't LifecycleStage) =
     input, [render input]@children
 type SettingConst<'t>(v: 't) =
     interface ISetting<'t> with
@@ -169,14 +169,15 @@ type StringRender() =
     interface Render<string> with
         member this.Render v isSelected = sprintf "%s%A" (if isSelected then "+" else " ") v
 
-let pmatch (pattern : IPatternMatch<'t, 'R>) (x : ISetting<'t>) = x.Match pattern
+let pmatch (pattern : IPatternMatch<'t>) (x : ISetting<'t>) = x.Match pattern
 let rec pattern<'t, 'out> (state: PatternState) (render:Render<'out>) =
     let assertOutputType x = x :> obj :?> 'output list // type system can't prove that 'output and 'out are the same type, so we assert it by casting because it always will be
     {
-        new IPatternMatch<'t, 't> with
+        new IPatternMatch<'t> with
             member __.Const x = Complete x, []
             member __.Choice options = 
-                let current = state |> Map.tryFind (options.GetHashCode()) |> Option.bind (function :? ISetting<'t> as v -> Some v | _ -> None)
+                let currentIx = state |> Map.tryFind (options.GetHashCode())
+                let current = currentIx |> Option.map (fun ix -> options.[ix])
                 let elements = [
                     for o in options do
                         yield (render.Render o (current = Some o))
@@ -204,24 +205,24 @@ eval (c 123)
 let choices = [c 123; c 456]
 let mySetting = choose choices
 eval mySetting (Map.ofSeq []) (StringRender())
-eval mySetting (Map.ofSeq [choices.GetHashCode(), (box choices.Head)]) (StringRender())
+eval mySetting (Map.ofSeq [choices.GetHashCode(), 0]) (StringRender())
 eval (c (fun x -> x + 1)) Map.empty (StringRender())
 
 let choice3 = [c XanatharDifficulty.Easy; c XanatharDifficulty.Medium; c XanatharDifficulty.Hard]
 let choice2 = [
-    ctor(c Xanathar,
+    ctor("Xanathar", c Xanathar,
         choose choice3
         )
-    ctor(choose [c DMG; c ShiningSword],
+    ctor("DMG/SS", choose [c DMG; c ShiningSword],
         choose [c Easy; c Medium; c Hard; c Deadly; c Ludicrous]
         )
     ]
 let choice1 = [
     c PureCR
-    ctor(c Encounter,
+    ctor("Encounter", c Encounter,
         choose choice2)
     ]
 let wizard1 = 
     choose choice1
 
-eval wizard1 (Map.ofSeq [choice1.GetHashCode(), box choices.[1]]) (StringRender())
+eval wizard1 (Map.ofSeq [choice1.GetHashCode(), 1]) (StringRender())
