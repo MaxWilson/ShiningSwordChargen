@@ -28,9 +28,10 @@ and IPatternMatch<'t> =
     abstract member App1 : Setting<'s -> 't> -> Setting<'s> -> 't LifecycleStage * 'output list
     abstract member App2 : Setting<'s1*'s2 -> 't> -> Setting<'s1> -> Setting<'s2> -> 't LifecycleStage * 'output list
 type Render<'output> = 
-    abstract member Render: 't1 -> isSelected:bool -> 'output
+    abstract member Render: options:'t1 list -> current: ChoiceState option -> 'output list
+and ChoiceState = ChoiceIndex of int
 and HashCode = int
-and WizardState = Map<HashCode, int>
+and WizardState = Map<HashCode, ChoiceState>
 
 let compose render children (input: 't LifecycleStage) =
     input, [render input]@children
@@ -70,31 +71,26 @@ let wizard =
                 ctor("Xanathar", c Xanathar,
                     choose [c XanatharDifficulty.Easy; c XanatharDifficulty.Medium; c XanatharDifficulty.Hard]
                     )
-                ctor("DMG/SS", choose [c DMG; c ShiningSword],
+                ctor("DMG", c DMG,
+                    choose [c Easy; c Medium; c Hard; c Deadly; c Ludicrous]
+                    )
+                ctor("SS", c ShiningSword,
                     choose [c Easy; c Medium; c Hard; c Deadly; c Ludicrous]
                     )
                 ])
         ]
 
-// What is needed now is a way to determine when a given setting has been chosen,
-// probably with some kind of threaded state that pattern can read from.
-type StringRender() = 
-    interface Render<string> with
-        member this.Render v isSelected = sprintf "%s%A" (if isSelected then "+" else " ") v
-
 let pmatch (pattern : IPatternMatch<'t>) (x : Setting<'t>) = x.Match pattern
 let rec pattern<'t, 'out> (state: WizardState) (render:Render<'out>) =
-    let assertOutputType x = x :> obj :?> 'output list // type system can't prove that 'output and 'out are the same type, so we assert it by casting because it always will be
+    let assertOutputType x = x :> obj :?> 'output // type system can't prove that 'output and 'out are the same type, so we assert it by casting because it always will be
     {
         new IPatternMatch<'t> with
             member __.Const x = Complete x, []
             member __.Choice options = 
                 let currentIx = state |> Map.tryFind (options.GetHashCode())
-                let current = currentIx |> Option.bind (fun ix -> if ix < options.Length then options.[ix] |> Some else None)
-                let elements = [
-                    for o in options do
-                        yield (render.Render o (current = Some o))
-                    ]
+                let elements = 
+                    render.Render options currentIx
+                let current = currentIx |> Option.map (fun (ChoiceIndex ix) -> options.[ix])
                 match current with
                 | Some (child: Setting<'t>) -> 
                     let (r:'t LifecycleStage), childElements = eval child state render
@@ -106,7 +102,7 @@ let rec pattern<'t, 'out> (state: WizardState) (render:Render<'out>) =
                     Complete (f x), assertOutputType (e1s@e2s)
                 | (Unset, e1s), _ ->
                     Unset, assertOutputType e1s
-                | (_, e1s), _ -> Set, assertOutputType e1s
+                | (_, e1s), (_, e2s) -> Set, assertOutputType (e1s@e2s)
             member __.App2 f arg arg2 = notImpl()
     }
 
