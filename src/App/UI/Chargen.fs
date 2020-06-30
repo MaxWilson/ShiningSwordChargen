@@ -6,6 +6,14 @@ open Domain.Model
 open Feliz
 open AutoWizard
 
+module NewCharacter =
+    type DetailLevel = | Template of templateName: string | Custom
+    type Name = string
+    type Spec = DetailLevel * (Sex * Name)
+
+let tup x y = ctor2("Invisible", c (fun(x,y) -> (x,y)), x, y)
+let wizard = tup (choose [c "Template"; c "Custom"]) (tup (choose [c Male; c Female]) (choose [c "Barbarian"; c "Samurai"]))
+
 type ViewMode = Creating | Selecting | Viewing
 type EditMode = Rearranging | Renaming | AssigningFeats
 type WizardChoices = Map<HashCode, ChoiceState>
@@ -111,9 +119,6 @@ let renderWizard (api: API<'model>) model setting =
         api.chargen_ => wizardChoices_ => hash_
 
     AutoWizard.eval(setting, getLens, render, model)
-
-let tup x y = ctor2("Invisible", c (fun(x,y) -> (x,y)), x, y)
-let wizard = tup (choose [c "Template"; c "Custom"]) (tup (choose [c Male; c Female]) (choose [c "Barbarian"; c "Samurai"]))
 
 let view (api: API<_>) (model: 'model) =
     let state = model |> read api.chargen_
