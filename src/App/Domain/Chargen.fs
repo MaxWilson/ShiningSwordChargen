@@ -4,6 +4,7 @@ open Domain
 open Model
 open Stats
 open Optics.Operations
+open Character
 
 let roll3d6InOrder() =
     let r _ = Array.init 3 (thunk1 d 6) |> Array.sum

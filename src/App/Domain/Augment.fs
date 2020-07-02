@@ -4,6 +4,7 @@ namespace Domain
 open Optics
 open Optics.Operations
 open Domain.Model
+open Domain.Model.Character
 
 module Stat =
     let lens (s:Stat) = [Stats.str_; Stats.dex_; Stats.con_; Stats.int_; Stats.wis_; Stats.cha_].[Stat.toTag s]
