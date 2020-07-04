@@ -2,11 +2,12 @@
 open Expecto
 open Expecto.Flip
 open FsCheck
+open Swensen.Unquote
 
+open Domain
 open Domain.Model
 open Domain.Model.Character
 open Domain.Chargen
-open Swensen.Unquote
 
 // map lvl onto 1-20 inclusive, and ignore as invalid any entries that are not increasing
 let normalizeLevels (spec: (Class * int) list) =
@@ -36,6 +37,9 @@ module Settings =
         features
         |> List.map (fun s -> eval(s, getLens, render, ()))
         |> List.map (function Complete(v), _ -> v | v, _ -> failwithf "Unexpected output! '%A' should be completed" v)
+        // now filter out duplicates, e.g. Second Wind 10 + Second Wind 11 = just Second Wind 11
+        |> List.groupBy ClassAbility.toTag
+        |> List.map (function _, [v] -> v | _, vs -> vs |> List.sortDescending |> List.head)
 
 [<Tests>]
 let tests = testList "Domain.Unit.Spot checks" [
@@ -54,7 +58,6 @@ let tests = testList "Domain.Unit.Spot checks" [
         let eval classes =
             let cl = expandClasses classes
             classFeatures cl |> Settings.arbitrarilyFulfill
-            |> List.sortDescending // Make sure the numerically "bigger" features take priority
             |> List.pick (function ExtraAttack n as e -> Some e | _ -> None)
         eval [Barbarian, 5]
         |> Expect.equal "Barbarian 5 should grant extra attack" (ExtraAttack 1)
