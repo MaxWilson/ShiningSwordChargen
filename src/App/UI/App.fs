@@ -1,6 +1,6 @@
 ﻿module UI.App
 
-open UI
+open UI.Types
 open Elmish
 open Fable.SimpleHttp
 open Thoth.Json
@@ -31,10 +31,10 @@ let view model dispatch =
                 prop.children [
                     Bulma.content [
                         UI.Chargen.view {
-                                chargen_ = UI.chargen_
-                                roster_ = UI.roster_
-                                currentIndex_ = UI.currentCreatureIndex_
-                                updateCmd = UI.Update >> dispatch
+                                chargen_ = Model.chargen_
+                                roster_ = Model.roster_
+                                currentIndex_ = Model.currentCreatureIndex_
+                                updateCmd = Update >> dispatch
                             } model
                         ]
                     ]
@@ -46,6 +46,6 @@ let view model dispatch =
                 Html.div (exn.ToString())
                 Html.button [
                     prop.text "Refresh"
-                    prop.onClick (fun _ -> Update (Optics.Operations.over currentCreatureIndex_ (Option.map (fun ix -> ix + 1 % (model.roster.Length)))) |> dispatch)
+                    prop.onClick (fun _ -> Update (Optics.Operations.over Model.currentCreatureIndex_ (Option.map (fun ix -> ix + 1 % (model.roster.Length)))) |> dispatch)
                     ]
                 ]

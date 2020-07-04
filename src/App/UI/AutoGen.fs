@@ -10,21 +10,22 @@ namespace rec UI
 
 namespace rec UI
 
-module UI =
-    open UI
+module Model =
+    open UI.Types
 
     let chargen_ =
-        Optics.lens (fun (data: UI) -> data.chargen) (fun (value: UI.Chargen.State) (data: UI) ->
+        Optics.lens (fun (data: Model) -> data.chargen) (fun (value: UI.Chargen.State) (data: Model) ->
             { data with chargen = value })
 
     let roster_ =
-        Optics.lens (fun (data: UI) -> data.roster) (fun (value: Domain.Model.Creature list) (data: UI) ->
+        Optics.lens (fun (data: Model) -> data.roster) (fun (value: Domain.Model.Creature list) (data: Model) ->
             { data with roster = value })
 
     let error_ =
-        Optics.lens (fun (data: UI) -> data.error) (fun (value: string option) (data: UI) -> { data with error = value })
+        Optics.lens (fun (data: Model) -> data.error) (fun (value: string option) (data: Model) ->
+            { data with error = value })
 
     let currentCreatureIndex_ =
-        Optics.lens (fun (data: UI) -> data.currentCreatureIndex) (fun (value: int option) (data: UI) ->
+        Optics.lens (fun (data: Model) -> data.currentCreatureIndex) (fun (value: int option) (data: Model) ->
             { data with
                   currentCreatureIndex = value })

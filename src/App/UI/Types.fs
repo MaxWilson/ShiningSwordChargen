@@ -1,9 +1,9 @@
-﻿module UI
+﻿module UI.Types
 open Myriadic
 open Domain.Model
 
 [<Generator.Lenses>]
-type UI = {
+type Model = {
     chargen: UI.Chargen.State
     roster: Domain.Model.Creature list
     error: string option
@@ -11,6 +11,6 @@ type UI = {
     }
 
 type Msg =
-    | Update of transform: (UI -> UI)
+    | Update of transform: (Model -> Model)
 
 
