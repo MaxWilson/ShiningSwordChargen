@@ -1,6 +1,7 @@
 ﻿#I __SOURCE_DIRECTORY__
 #load @"..\..\Lib\Common.fs"
 #load @"..\..\Lib\Optics.fs"
+#load @"..\..\Lib\AutoWizard.fs"
 #load @"Model.fs"
 #load @"AutoGen.fs"
 #load @"Augment.fs"

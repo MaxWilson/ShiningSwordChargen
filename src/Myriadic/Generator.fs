@@ -207,6 +207,12 @@ type LensesGenerator() =
     interface IMyriadGenerator with
         member __.Generate(namespace', ast: ParsedInput) =
             let namespaceAndRecords = Ast.extractRecords ast
+            let openDecls = [
+                // sorry! This is a domain-specific hack! TODO: derive these properly, i.e. automatically.
+                SynModuleDecl.CreateOpen (LongIdentWithDots.Create ["AutoWizard"])
+                SynModuleDecl.CreateOpen (LongIdentWithDots.Create ["Domain"; "Model"])
+                SynModuleDecl.CreateOpen (LongIdentWithDots.Create ["Domain"; "Model"; "Character"])
+                ]
             let recordsModules =
                 namespaceAndRecords
                 |> List.collect (
@@ -232,6 +238,8 @@ type LensesGenerator() =
                 { SynModuleOrNamespaceRcd.CreateNamespace(Ident.CreateLong namespace')
                     with
                         IsRecursive = true
-                        Declarations = recordsModules @ duModules }
+                        Declarations = openDecls @ recordsModules @ duModules
+
+                        }
 
             namespaceOrModule

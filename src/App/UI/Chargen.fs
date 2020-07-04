@@ -5,6 +5,7 @@ open Domain
 open Domain.Model
 open Feliz
 open AutoWizard
+open Domain.Model.Character
 
 module NewCharacter =
     type DetailLevel = | Template of templateName: string | Custom

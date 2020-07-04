@@ -4,6 +4,7 @@ namespace Domain
 open Optics
 open Optics.Operations
 open Domain.Model
+open Domain.Model.Character
 
 module Stat =
     let toString (x: Stat) =

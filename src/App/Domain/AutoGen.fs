@@ -8,7 +8,7 @@ namespace rec Domain
 namespace rec Domain
 
 module Sex =
-    open Domain.Model
+    open Domain.Model.Character
 
     let toString (x: Sex) =
         match x with
@@ -44,46 +44,372 @@ module Sex =
         | Neither -> true
         | _ -> false
 
-module Race =
-    open Domain.Model
+module Feat =
+    open Domain.Model.Character
 
-    let toString (x: Race) =
+    let toString (x: Feat) =
         match x with
-        | Human -> "Human"
-        | Elf -> "Elf"
-        | Dwarf -> "Dwarf"
+        | Sharpshooter -> "Sharpshooter"
+        | CrossbowExpert -> "CrossbowExpert"
+        | HeavyArmorMaster -> "HeavyArmorMaster"
+        | GreatWeaponMaster -> "GreatWeaponMaster"
 
     let fromString (x: string) =
         match x with
-        | "Human" -> Some Human
-        | "Elf" -> Some Elf
-        | "Dwarf" -> Some Dwarf
+        | "Sharpshooter" -> Some Sharpshooter
+        | "CrossbowExpert" -> Some CrossbowExpert
+        | "HeavyArmorMaster" -> Some HeavyArmorMaster
+        | "GreatWeaponMaster" -> Some GreatWeaponMaster
+        | _ -> None
+
+    let toTag (x: Feat) =
+        match x with
+        | Sharpshooter -> 0
+        | CrossbowExpert -> 1
+        | HeavyArmorMaster -> 2
+        | GreatWeaponMaster -> 3
+
+    let isSharpshooter (x: Feat) =
+        match x with
+        | Sharpshooter -> true
+        | _ -> false
+
+    let isCrossbowExpert (x: Feat) =
+        match x with
+        | CrossbowExpert -> true
+        | _ -> false
+
+    let isHeavyArmorMaster (x: Feat) =
+        match x with
+        | HeavyArmorMaster -> true
+        | _ -> false
+
+    let isGreatWeaponMaster (x: Feat) =
+        match x with
+        | GreatWeaponMaster -> true
+        | _ -> false
+
+module Skill =
+    open Domain.Model.Character
+
+    let toString (x: Skill) =
+        match x with
+        | Athletics -> "Athletics"
+        | Stealth -> "Stealth"
+        | Perception -> "Perception"
+        | Insight -> "Insight"
+
+    let fromString (x: string) =
+        match x with
+        | "Athletics" -> Some Athletics
+        | "Stealth" -> Some Stealth
+        | "Perception" -> Some Perception
+        | "Insight" -> Some Insight
+        | _ -> None
+
+    let toTag (x: Skill) =
+        match x with
+        | Athletics -> 0
+        | Stealth -> 1
+        | Perception -> 2
+        | Insight -> 3
+
+    let isAthletics (x: Skill) =
+        match x with
+        | Athletics -> true
+        | _ -> false
+
+    let isStealth (x: Skill) =
+        match x with
+        | Stealth -> true
+        | _ -> false
+
+    let isPerception (x: Skill) =
+        match x with
+        | Perception -> true
+        | _ -> false
+
+    let isInsight (x: Skill) =
+        match x with
+        | Insight -> true
+        | _ -> false
+
+module ElfRace =
+    open Domain.Model.Character
+
+    let toString (x: ElfRace) =
+        match x with
+        | High -> "High"
+        | Wood -> "Wood"
+        | Drow -> "Drow"
+
+    let fromString (x: string) =
+        match x with
+        | "High" -> Some High
+        | "Wood" -> Some Wood
+        | "Drow" -> Some Drow
+        | _ -> None
+
+    let toTag (x: ElfRace) =
+        match x with
+        | High -> 0
+        | Wood -> 1
+        | Drow -> 2
+
+    let isHigh (x: ElfRace) =
+        match x with
+        | High -> true
+        | _ -> false
+
+    let isWood (x: ElfRace) =
+        match x with
+        | Wood -> true
+        | _ -> false
+
+    let isDrow (x: ElfRace) =
+        match x with
+        | Drow -> true
+        | _ -> false
+
+module DwarfRace =
+    open Domain.Model.Character
+
+    let toString (x: DwarfRace) =
+        match x with
+        | Mountain -> "Mountain"
+        | Hill -> "Hill"
+
+    let fromString (x: string) =
+        match x with
+        | "Mountain" -> Some Mountain
+        | "Hill" -> Some Hill
+        | _ -> None
+
+    let toTag (x: DwarfRace) =
+        match x with
+        | Mountain -> 0
+        | Hill -> 1
+
+    let isMountain (x: DwarfRace) =
+        match x with
+        | Mountain -> true
+        | _ -> false
+
+    let isHill (x: DwarfRace) =
+        match x with
+        | Hill -> true
+        | _ -> false
+
+module HumanType =
+    open Domain.Model.Character
+
+    let toString (x: HumanType) =
+        match x with
+        | Standard -> "Standard"
+        | Variant -> "Variant"
+
+    let fromString (x: string) =
+        match x with
+        | "Standard" -> Some Standard
+        | "Variant" -> Some Variant
+        | _ -> None
+
+    let toTag (x: HumanType) =
+        match x with
+        | Standard -> 0
+        | Variant -> 1
+
+    let isStandard (x: HumanType) =
+        match x with
+        | Standard -> true
+        | _ -> false
+
+    let isVariant (x: HumanType) =
+        match x with
+        | Variant -> true
+        | _ -> false
+
+module Race =
+    open Domain.Model.Character
+
+    let toString (x: Race) =
+        match x with
+        | Human _ -> "Human"
+        | Elf _ -> "Elf"
+        | Dwarf _ -> "Dwarf"
+        | Halforc -> "Halforc"
+        | Goblin -> "Goblin"
+
+    let fromString (x: string) =
+        match x with
+        | "Halforc" -> Some Halforc
+        | "Goblin" -> Some Goblin
         | _ -> None
 
     let toTag (x: Race) =
         match x with
-        | Human -> 0
-        | Elf -> 1
-        | Dwarf -> 2
+        | Human _ -> 0
+        | Elf _ -> 1
+        | Dwarf _ -> 2
+        | Halforc -> 3
+        | Goblin -> 4
 
     let isHuman (x: Race) =
         match x with
-        | Human -> true
+        | Human _ -> true
         | _ -> false
 
     let isElf (x: Race) =
         match x with
-        | Elf -> true
+        | Elf _ -> true
         | _ -> false
 
     let isDwarf (x: Race) =
         match x with
-        | Dwarf -> true
+        | Dwarf _ -> true
+        | _ -> false
+
+    let isHalforc (x: Race) =
+        match x with
+        | Halforc -> true
+        | _ -> false
+
+    let isGoblin (x: Race) =
+        match x with
+        | Goblin -> true
+        | _ -> false
+
+module Class =
+    open Domain.Model.Character
+
+    let toString (x: Class) =
+        match x with
+        | Barbarian -> "Barbarian"
+        | Fighter -> "Fighter"
+        | Monk -> "Monk"
+        | Rogue -> "Rogue"
+
+    let fromString (x: string) =
+        match x with
+        | "Barbarian" -> Some Barbarian
+        | "Fighter" -> Some Fighter
+        | "Monk" -> Some Monk
+        | "Rogue" -> Some Rogue
+        | _ -> None
+
+    let toTag (x: Class) =
+        match x with
+        | Barbarian -> 0
+        | Fighter -> 1
+        | Monk -> 2
+        | Rogue -> 3
+
+    let isBarbarian (x: Class) =
+        match x with
+        | Barbarian -> true
+        | _ -> false
+
+    let isFighter (x: Class) =
+        match x with
+        | Fighter -> true
+        | _ -> false
+
+    let isMonk (x: Class) =
+        match x with
+        | Monk -> true
+        | _ -> false
+
+    let isRogue (x: Class) =
+        match x with
+        | Rogue -> true
+        | _ -> false
+
+module FightingStyle =
+    open Domain.Model.Character
+
+    let toString (x: FightingStyle) =
+        match x with
+        | Dueling -> "Dueling"
+        | Archery -> "Archery"
+        | Defense -> "Defense"
+        | GreatWeaponFighting -> "GreatWeaponFighting"
+
+    let fromString (x: string) =
+        match x with
+        | "Dueling" -> Some Dueling
+        | "Archery" -> Some Archery
+        | "Defense" -> Some Defense
+        | "GreatWeaponFighting" -> Some GreatWeaponFighting
+        | _ -> None
+
+    let toTag (x: FightingStyle) =
+        match x with
+        | Dueling -> 0
+        | Archery -> 1
+        | Defense -> 2
+        | GreatWeaponFighting -> 3
+
+    let isDueling (x: FightingStyle) =
+        match x with
+        | Dueling -> true
+        | _ -> false
+
+    let isArchery (x: FightingStyle) =
+        match x with
+        | Archery -> true
+        | _ -> false
+
+    let isDefense (x: FightingStyle) =
+        match x with
+        | Defense -> true
+        | _ -> false
+
+    let isGreatWeaponFighting (x: FightingStyle) =
+        match x with
+        | GreatWeaponFighting -> true
+        | _ -> false
+
+module ClassAbility =
+    open Domain.Model.Character
+
+    let toString (x: ClassAbility) =
+        match x with
+        | ASI _ -> "ASI"
+        | Feat _ -> "Feat"
+        | FightingStyle _ -> "FightingStyle"
+
+    let fromString (x: string) =
+        match x with
+        | _ -> None
+
+    let toTag (x: ClassAbility) =
+        match x with
+        | ASI _ -> 0
+        | Feat _ -> 1
+        | FightingStyle _ -> 2
+
+    let isASI (x: ClassAbility) =
+        match x with
+        | ASI _ -> true
+        | _ -> false
+
+    let isFeat (x: ClassAbility) =
+        match x with
+        | Feat _ -> true
+        | _ -> false
+
+    let isFightingStyle (x: ClassAbility) =
+        match x with
+        | FightingStyle _ -> true
         | _ -> false
 namespace rec Domain
 
+open AutoWizard
+open Domain.Model
+open Domain.Model.Character
+
 module Stats =
-    open Domain.Model
+    open Domain.Model.Character
 
     let str_ =
         Optics.lens (fun (data: Stats) -> data.str) (fun (value: int) (data: Stats) -> { data with str = value })
@@ -143,3 +469,34 @@ module Creature =
     let stats_ =
         Optics.lens (fun (data: Creature) -> data.stats) (fun (value: StatSource) (data: Creature) ->
             { data with stats = value })
+
+module CharacterSheet =
+    open Domain.Model.Draft
+
+    let unmodifiedStats_ =
+        Optics.lens (fun (data: CharacterSheet) -> data.unmodifiedStats) (fun (value: Stats) (data: CharacterSheet) ->
+            { data with unmodifiedStats = value })
+
+    let name_ =
+        Optics.lens (fun (data: CharacterSheet) -> data.name) (fun (value: string) (data: CharacterSheet) ->
+            { data with name = value })
+
+    let sex_ =
+        Optics.lens (fun (data: CharacterSheet) -> data.sex) (fun (value: Setting<Sex>) (data: CharacterSheet) ->
+            { data with sex = value })
+
+    let race_ =
+        Optics.lens (fun (data: CharacterSheet) -> data.race) (fun (value: Setting<Race>) (data: CharacterSheet) ->
+            { data with race = value })
+
+    let xp_ =
+        Optics.lens (fun (data: CharacterSheet) -> data.xp) (fun (value: int) (data: CharacterSheet) ->
+            { data with xp = value })
+
+    let allocatedLevels_ =
+        Optics.lens (fun (data: CharacterSheet) -> data.allocatedLevels) (fun (value: Class list) (data: CharacterSheet) ->
+            { data with allocatedLevels = value })
+
+    let classAbilities_ =
+        Optics.lens (fun (data: CharacterSheet) -> data.classAbilities) (fun (value: Setting<ClassAbility> list) (data: CharacterSheet) ->
+            { data with classAbilities = value })
