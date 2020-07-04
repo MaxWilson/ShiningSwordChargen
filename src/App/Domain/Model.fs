@@ -42,7 +42,24 @@ module Character =
     [<Generator.DuCases>]
     type FightingStyle = Dueling | Archery | Defense | GreatWeaponFighting
     [<Generator.DuCases>]
-    type ClassAbility = ASI of (Stat * Stat) | Feat of Feat | FightingStyle of FightingStyle
+    type Subclass =
+        | Champion
+        | EldritchKnight
+        | Samurai
+        | Zealot
+        | Swashbuckler
+        | FourElements
+
+    type ASIChoice = ASI of Stat * Stat | Feat of Feat
+
+    [<Generator.DuCases>]
+    type ClassAbility =
+        | ASIChoice of ASIChoice
+        | FightingStyle of FightingStyle
+        | ExtraAttack of int
+        | SecondWind of int
+        | Indomitable of int
+        | Subclass of Subclass
 
 open Character
 

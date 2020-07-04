@@ -24,3 +24,51 @@ let standardArray() =
   let statsInOrder = [| 15; 14; 13; 12; 10; 8 |] |> Array.sortDescending |> Array.mapi (fun i v -> write lenses.[i] v)
   statsInOrder |> Array.fold (fun s t -> t s) { str = 0; dex = 0; con = 0; int = 0; wis = 0; cha = 0 }
 
+let expandClasses (classLevels: (Class * int) list) : Class list =
+    let rec add alreadySeen accumulator = function
+        | [] -> accumulator
+        | (charClass, level)::rest ->
+            let newLevels =
+                match alreadySeen |> Map.tryFind charClass with
+                | Some n -> List.replicate (max 0 (level - n)) charClass
+                | None -> List.replicate (max 0 level) charClass
+            add (alreadySeen |> Map.add charClass level) (accumulator@newLevels) rest
+    add Map.empty [] classLevels
+
+let compactClasses (classes: Class list) : (Class * int) list =
+    let rec add classes = function
+        | [] ->
+            classes |> List.rev
+        | cl::rest ->
+            match classes with
+            | (h,lvl)::lrest when h = cl ->
+                rest |> add ((h, lvl+1)::lrest)
+            | _ ->
+                let lvl = classes |> List.tryPick (function (h,lvl) when h = cl -> Some lvl | _ -> None)
+                rest |> add ((cl, match lvl with Some lvl -> lvl + 1 | None -> 1)::classes)
+    add [] classes
+
+let classFeatures (classes: Class list) =
+    [for (charClass, lvl) in classes |> List.groupBy id |> List.map(fun (c,g) -> c, g.Length) do
+        let c = AutoWizard.c
+        let choose = AutoWizard.choose
+        let ctor = AutoWizard.ctor
+        let ctor2 = AutoWizard.ctor2
+        let feats =
+            [for x in [4;8;12;16;19] do
+                if lvl >= x then
+                    AutoWizard.ctor("ASI or feat", c ASIChoice,
+                        choose [
+                            ctor("Feat", (c Feat), choose [c Sharpshooter; c CrossbowExpert])
+                            ctor2("ASI", c (fun (s1, s2) -> ASI(s1, s2)), (Stat.values |> List.map c |> choose), (Stat.values |> List.map c |> choose))]
+                        )]
+        match charClass with
+        | Fighter ->
+            c (SecondWind lvl)
+            if lvl >= 20 then c (ExtraAttack 3)
+            elif lvl >= 11 then c (ExtraAttack 2)
+            elif lvl >= 5 then c (ExtraAttack 1)
+        | Barbarian ->
+            if lvl >= 5 then c (ExtraAttack 1)
+        | _ -> ()
+        ]

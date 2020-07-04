@@ -369,14 +369,78 @@ module FightingStyle =
         | GreatWeaponFighting -> true
         | _ -> false
 
+module Subclass =
+    open Domain.Model.Character
+
+    let toString (x: Subclass) =
+        match x with
+        | Champion -> "Champion"
+        | EldritchKnight -> "EldritchKnight"
+        | Samurai -> "Samurai"
+        | Zealot -> "Zealot"
+        | Swashbuckler -> "Swashbuckler"
+        | FourElements -> "FourElements"
+
+    let fromString (x: string) =
+        match x with
+        | "Champion" -> Some Champion
+        | "EldritchKnight" -> Some EldritchKnight
+        | "Samurai" -> Some Samurai
+        | "Zealot" -> Some Zealot
+        | "Swashbuckler" -> Some Swashbuckler
+        | "FourElements" -> Some FourElements
+        | _ -> None
+
+    let toTag (x: Subclass) =
+        match x with
+        | Champion -> 0
+        | EldritchKnight -> 1
+        | Samurai -> 2
+        | Zealot -> 3
+        | Swashbuckler -> 4
+        | FourElements -> 5
+
+    let isChampion (x: Subclass) =
+        match x with
+        | Champion -> true
+        | _ -> false
+
+    let isEldritchKnight (x: Subclass) =
+        match x with
+        | EldritchKnight -> true
+        | _ -> false
+
+    let isSamurai (x: Subclass) =
+        match x with
+        | Samurai -> true
+        | _ -> false
+
+    let isZealot (x: Subclass) =
+        match x with
+        | Zealot -> true
+        | _ -> false
+
+    let isSwashbuckler (x: Subclass) =
+        match x with
+        | Swashbuckler -> true
+        | _ -> false
+
+    let isFourElements (x: Subclass) =
+        match x with
+        | FourElements -> true
+        | _ -> false
+
 module ClassAbility =
     open Domain.Model.Character
 
     let toString (x: ClassAbility) =
         match x with
-        | ASI _ -> "ASI"
-        | Feat _ -> "Feat"
+        | ASIChoice _ -> "ASIChoice"
         | FightingStyle _ -> "FightingStyle"
+        | ExtraAttack _ -> "ExtraAttack"
+        | SecondWind _ -> "SecondWind"
+        | Indomitable _ -> "Indomitable"
+        | Subclass _ -> "Subclass"
 
     let fromString (x: string) =
         match x with
@@ -384,23 +448,41 @@ module ClassAbility =
 
     let toTag (x: ClassAbility) =
         match x with
-        | ASI _ -> 0
-        | Feat _ -> 1
-        | FightingStyle _ -> 2
+        | ASIChoice _ -> 0
+        | FightingStyle _ -> 1
+        | ExtraAttack _ -> 2
+        | SecondWind _ -> 3
+        | Indomitable _ -> 4
+        | Subclass _ -> 5
 
-    let isASI (x: ClassAbility) =
+    let isASIChoice (x: ClassAbility) =
         match x with
-        | ASI _ -> true
-        | _ -> false
-
-    let isFeat (x: ClassAbility) =
-        match x with
-        | Feat _ -> true
+        | ASIChoice _ -> true
         | _ -> false
 
     let isFightingStyle (x: ClassAbility) =
         match x with
         | FightingStyle _ -> true
+        | _ -> false
+
+    let isExtraAttack (x: ClassAbility) =
+        match x with
+        | ExtraAttack _ -> true
+        | _ -> false
+
+    let isSecondWind (x: ClassAbility) =
+        match x with
+        | SecondWind _ -> true
+        | _ -> false
+
+    let isIndomitable (x: ClassAbility) =
+        match x with
+        | Indomitable _ -> true
+        | _ -> false
+
+    let isSubclass (x: ClassAbility) =
+        match x with
+        | Subclass _ -> true
         | _ -> false
 namespace rec Domain
 
