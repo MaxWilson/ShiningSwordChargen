@@ -6,46 +6,32 @@ open Domain.Model
 open Feliz
 open AutoWizard
 open Domain.Model.Character
+open Domain.CharacterSheet
 
 module NewCharacter =
     type DetailLevel = | Template of templateName: string | Custom
     type Name = string
     type Spec = DetailLevel * (Sex * Name)
 
-let tup x y = ctor2("Invisible", c (fun(x,y) -> (x,y)), x, y)
-let wizard = tup (choose [c "Template"; c "Custom"]) (tup (choose [c Male; c Female]) (choose [c "Barbarian"; c "Samurai"]))
-
-type ViewMode = Creating | Selecting | Viewing
+type ViewMode = Creating of Draft.CharacterSheet | Selecting | Viewing
 type EditMode = Rearranging | Renaming | AssigningFeats
 type WizardChoices = Map<HashCode, ChoiceState>
 type State = {
-    sex: Sex option
-    stats: Stats option
-    name: string option
     viewMode: ViewMode option
     editMode: EditMode option
     wizardChoices: WizardChoices
     }
-    with static member fresh = { sex = None; stats = None; name = None; viewMode = None; editMode = None; wizardChoices = Map.empty }
+    with static member fresh = { viewMode = None; editMode = None; wizardChoices = Map.empty }
 
-let toCharSheet (state: State) : Creature =
-    {
-        name = state.name.Value
-        stats = CharSheet {
-            statBlock = {
-                Model.StatBlock.stats = state.stats.Value
-                hp = 20
-                ac = 10
-                }
-            xp = 0
-            sex = state.sex.Value
-            yearOfBirth = 420
-            }
-    }
-
-let stats_ = lens (fun (d: State) -> d.stats) (fun v d -> { d with stats = v })
-let sex_ = lens (fun (d: State) -> d.sex) (fun v d -> { d with sex = v })
-let name_ = lens (fun (d: State) -> d.name) (fun v d -> { d with name = v })
+let charSheet_P =
+    prism (fun (d: State) ->
+            match d.viewMode with
+            | Some (Creating draft) -> Some draft
+            | _ -> None)
+        (fun v d ->
+            match d.viewMode with
+            | Some (Creating _) -> { d with viewMode = Some (Creating v) }
+            | _ -> d)
 let viewMode_ = lens (fun (d: State) -> d.viewMode) (fun v d -> { d with viewMode = v })
 let editMode_ = lens (fun (d: State) -> d.editMode) (fun v d -> { d with editMode = v })
 let wizardChoices_ = lens (fun (d: State) -> d.wizardChoices) (fun v d -> { d with wizardChoices = v })
@@ -53,9 +39,9 @@ let wizardChoices_ = lens (fun (d: State) -> d.wizardChoices) (fun v d -> { d wi
 let generateName sex state =
     let name =
         match sex with
-        | Female -> chooseRandom ["Diana"; "Kiera"; "Kelsey"; "Samantha"; "Alexandra"; "Cleo"; "Berlin"; "Jenny"; "Katherine"] |> Some
-        | Male | Neither -> chooseRandom ["Ryan"; "Theodore"; "Sam"; "Alex"; "Max"; "Dante"; "Zorro"; "Vlad"] |> Some
-    state |> write name_ name
+        | Female -> chooseRandom ["Diana"; "Kiera"; "Kelsey"; "Samantha"; "Alexandra"; "Cleo"; "Berlin"; "Jenny"; "Katherine"]
+        | Male | Neither -> chooseRandom ["Ryan"; "Theodore"; "Sam"; "Alex"; "Max"; "Dante"; "Zorro"; "Vlad"]
+    state |> write (charSheet_P => CharacterSheet.name_) name
 
 type 'model API = {
     chargen_: Lens<'model, State>
@@ -130,56 +116,18 @@ let view (api: API<_>) (model: 'model) =
             ]
 
     React.fragment [
-        match state.viewMode with
-        | Some Creating ->
-            let stats = api.chargen_ => stats_
+        match model |> read (api.chargen_ => viewMode_) with
+        | Some (Creating sheet) ->
+            let stats = sheet.unmodifiedStats
             let update t = api.updateCmd (over api.chargen_ t)
             let set (lens: Lens<_,_>) v = api.updateCmd (write (api.chargen_ => lens) (Some v))
-
-            let choice, elements = renderWizard api model wizard
+            let wizard = Domain.Chargen.classFeatures (Domain.Chargen.expandClasses [Barbarian, 20])
+            let choice, elements = renderWizard api model wizard.Head
             match choice with
             | Unset | Set ->
                 React.fragment elements
             | Complete _ ->
-                Html.h1 "New character"
-                match state.sex with
-                | None ->
-                    Html.div "Choose sex"
-                    Html.button [
-                        prop.onClick (fun _ -> (set sex_ Male))
-                        prop.text "Male"
-                        ]
-                    Html.button [
-                        prop.onClick (fun _ -> (set sex_ Female))
-                        prop.text "Female"
-                        ]
-                    cancel
-                | Some sex ->
-                    Html.div "Choose stat rolling method"
-                    match state.stats with
-                    | None ->
-                        Html.button [
-                            prop.onClick (fun _ -> update (write stats_ (Domain.Chargen.roll3d6InOrder() |> Some) >> generateName sex))
-                            prop.text "Roll 3d6"
-                            ]
-                        Html.button [
-                            prop.onClick (fun _ -> update (write stats_ (Domain.Chargen.roll4d6k3() |> Some) >> generateName sex))
-                            prop.text "Roll 4d6k3"
-                            ]
-                        Html.button [
-                            prop.onClick (fun _ -> update (write stats_ (Domain.Chargen.standardArray() |> Some) >> generateName sex))
-                            prop.text "Standard array"
-                            ]
-                        cancel
-                    | Some stats ->
-                        viewCharacter api (api.chargen_ => name_ => Option.some__) sex stats state.editMode model
-                        Html.button [
-                            prop.onClick (fun _ -> api.updateCmd(fun model ->
-                                model
-                                |> over api.roster_ (fun entries -> (model |> read api.chargen_ |> toCharSheet)::entries)
-                                |> write api.chargen_ State.fresh))
-                            sprintf "Abandon %s" state.name.Value |> prop.text
-                            ]
+                Html.button "OK"
         | Some Selecting ->
             let selectFor ix (sheet: Creature) =
                 Html.button [

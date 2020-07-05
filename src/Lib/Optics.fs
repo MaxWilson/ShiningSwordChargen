@@ -8,6 +8,15 @@ type OpticOutput<'state> = 'state -> OpticResult<'state>
 type Lens<'state, 'value> = Lens of ('value OpticInput -> OpticOutput<'state>)
     with
     member this.d : 'value OpticInput -> OpticOutput<'state> = match this with Lens(l) -> l
+    static member (?=>)(outer: Lens<_,_>, inner: Lens<_,_>) =
+        //let model1 = (fun f -> inner.d f |> outer.d)
+        //let model2 = (fun f -> outer.d (fun st -> inner.d f st))
+        //let model3 = (fun f -> outer.d (fun st -> inner.d f st))
+        Prism(fun f -> 
+                (function
+                    | Some data -> inner.d f data |> function Update v -> Update (Some v) | _ -> Ignore
+                    | None -> Ignore)
+                |> outer.d)    
     static member (=>)(outer: Lens<_,_>, inner: Lens<_,_>) =
         Lens(outer.d << inner.d)
     static member (=>)(outer: unit -> Lens<_,_>, inner: Lens<_,_>) =
