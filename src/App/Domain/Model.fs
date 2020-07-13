@@ -33,9 +33,9 @@ module Character =
     [<Generator.DuCases>]
     type DwarfRace = Mountain | Hill
     [<Generator.DuCases>]
-    type HumanType = Standard | Variant
+    type HumanType = Standard | Variant of Skill * Feat * (Stat * Stat)
     [<Generator.DuCases>]
-    type Race = Human of HumanType * Skill * Feat * (Stat * Stat) | Elf of ElfRace | Dwarf of DwarfRace | Halforc | Goblin
+    type Race = Human of HumanType | Elf of ElfRace | Dwarf of DwarfRace | Halforc | Goblin
 
     [<Generator.DuCases>]
     type Class = Barbarian | Fighter | Monk | Rogue
@@ -92,7 +92,8 @@ module Draft =
     [<Generator.Lenses>]
     type CharacterSheet = {
         unmodifiedStats: Stats
-        name: string
+        explicitName: string option
+        autoName: string
         sex: Setting<Sex>
         race: Setting<Race>
         xp: int

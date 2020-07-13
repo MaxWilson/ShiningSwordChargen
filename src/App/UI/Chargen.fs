@@ -6,6 +6,7 @@ open Domain.Model
 open Feliz
 open AutoWizard
 open Domain.Model.Character
+open Domain.Chargen
 open Domain.CharacterSheet
 
 module NewCharacter =
@@ -35,13 +36,6 @@ let charSheet_P =
 let viewMode_ = lens (fun (d: State) -> d.viewMode) (fun v d -> { d with viewMode = v })
 let editMode_ = lens (fun (d: State) -> d.editMode) (fun v d -> { d with editMode = v })
 let wizardChoices_ = lens (fun (d: State) -> d.wizardChoices) (fun v d -> { d with wizardChoices = v })
-
-let generateName sex state =
-    let name =
-        match sex with
-        | Female -> chooseRandom ["Diana"; "Kiera"; "Kelsey"; "Samantha"; "Alexandra"; "Cleo"; "Berlin"; "Jenny"; "Katherine"]
-        | Male | Neither -> chooseRandom ["Ryan"; "Theodore"; "Sam"; "Alex"; "Max"; "Dante"; "Zorro"; "Vlad"]
-    state |> write (charSheet_P => CharacterSheet.name_) name
 
 type 'model API = {
     chargen_: Lens<'model, State>
@@ -86,7 +80,7 @@ let renderWizard (api: API<'model>) model setting =
     let render =
         {
         new AutoWizard.Render<'model, ReactElement> with
-        member this.Render options lens = [
+        member this.RenderChoice options lens = [
                 Html.div [
                     let currentChoice = model |> read lens
                     for ix, o in options |> List.indexed do
@@ -94,6 +88,20 @@ let renderWizard (api: API<'model>) model setting =
                             prop.text (o.ToString());
                             prop.style [if Some (ChoiceIndex ix) = currentChoice then style.color.red]
                             prop.onClick (fun ev -> ev.preventDefault(); api.updateCmd(write lens (ChoiceIndex ix |> Some)))
+                            ]
+                        ]
+            ]
+        member this.RenderChoiceDistinctN options n lens = [
+                Html.div [
+                    let currentChoices = match model |> read lens with Some (MultichoiceIndex ixs) -> ixs | _ -> []
+                    let toggle ix current =
+                        if current |> List.exists ((=) ix) then current |> List.filter ((<>)ix)
+                        else ix::current
+                    for ix, o in options |> List.indexed do
+                        Html.button [
+                            prop.text (o.ToString());
+                            prop.style [if currentChoices |> List.exists ((=) ix) then style.color.red]
+                            prop.onClick (fun ev -> ev.preventDefault(); api.updateCmd(write lens (MultichoiceIndex (currentChoices |> toggle ix) |> Some)))
                             ]
                         ]
             ]
@@ -127,7 +135,7 @@ let view (api: API<_>) (model: 'model) =
             | Unset | Set ->
                 React.fragment elements
             | Complete _ ->
-                Html.button "OK"
+                Html.button [prop.text "OK"]
         | Some Selecting ->
             let selectFor ix (sheet: Creature) =
                 Html.button [
@@ -145,8 +153,25 @@ let view (api: API<_>) (model: 'model) =
             viewCharacter api (api.roster_ => List.nth__ (model |> read api.currentIndex_ |> Option.get) => Creature.name_) sex sheet.statBlock.stats state.editMode model
             cancel
         | None ->
+            let tryEval setting =
+                let getLens hashCode =
+                    let hash_ =
+                        Lens.create
+                            (Map.tryFind hashCode)
+                            (function None -> Map.remove hashCode | Some v -> Map.add hashCode v)
+                    api.chargen_ => wizardChoices_ => hash_
+                let trivialRender =
+                    {
+                        new AutoWizard.Render<'model, unit> with
+                            member this.RenderChoice options lens = []
+                            member this.RenderChoiceDistinctN options n lens = []
+                    }
+                match AutoWizard.eval(setting, getLens, trivialRender, model) with
+                | Complete v, _ -> Some v
+                | _ -> None
+
             Html.button [
-                prop.onClick (fun _ -> api.updateCmd(writeSome (api.chargen_ => viewMode_) Creating))
+                prop.onClick (fun _ -> api.updateCmd(writeSome (api.chargen_ => viewMode_) (roll4d6k3() |> Draft.createBlank tryEval |> Creating)))
                 prop.text "Create new character"
                 ]
             Html.button [

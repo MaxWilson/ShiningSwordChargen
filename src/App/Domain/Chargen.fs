@@ -72,3 +72,43 @@ let classFeatures (classes: Class list) =
             if lvl >= 5 then c (ExtraAttack 1)
         | _ -> ()
         ]
+
+module Draft =
+    open AutoWizard
+    open Draft
+    type SettingEvaluator<'t> = Setting<'t> -> 't option
+
+    let chooseFrom lst = lst |> List.map c |> choose
+    let featChoice = chooseFrom [Sharpshooter; CrossbowExpert; HeavyArmorMaster; GreatWeaponMaster]
+    let fightingStyleChoice = chooseFrom [Dueling; Archery; Defense; GreatWeaponFighting]
+    let skillChoice = chooseFrom [Athletics; Stealth; Perception; Insight]
+    let raceChoice =
+        let humanAsi = ctor("Ability score bonuses", c (function [a;b] -> a,b | _ -> shouldntHappen()), chooseDistinct 2 (Stat.values |> List.map c))
+        choose [
+            ctor("Human", c Human,
+                choose [
+                    c Standard
+                    ctor3("Variant", c Variant, skillChoice, featChoice, humanAsi)
+                ])
+            c Goblin
+            c Halforc
+        ]
+
+    let resetAutoName (eval:SettingEvaluator<_>) (draft : Draft.CharacterSheet) =
+        let name =
+            match eval(draft.sex) with
+            | Some Female -> chooseRandom ["Diana"; "Kiera"; "Kelsey"; "Samantha"; "Alexandra"; "Cleo"; "Berlin"; "Jenny"; "Katherine"]
+            | Some Male | _ -> chooseRandom ["Ryan"; "Theodore"; "Sam"; "Alex"; "Max"; "Dante"; "Zorro"; "Vlad"]
+        { draft with autoName = name }
+
+    let createBlank eval stats =
+        {
+        Draft.CharacterSheet.unmodifiedStats = stats
+        explicitName = None
+        autoName = "Unnamed"
+        sex = choose [c Male; c Female; c Neither]
+        race = raceChoice
+        xp = 0
+        allocatedLevels = []
+        classAbilities = []
+        } |> resetAutoName eval

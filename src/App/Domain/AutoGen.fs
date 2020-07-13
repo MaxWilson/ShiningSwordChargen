@@ -206,18 +206,17 @@ module HumanType =
     let toString (x: HumanType) =
         match x with
         | Standard -> "Standard"
-        | Variant -> "Variant"
+        | Variant _ -> "Variant"
 
     let fromString (x: string) =
         match x with
         | "Standard" -> Some Standard
-        | "Variant" -> Some Variant
         | _ -> None
 
     let toTag (x: HumanType) =
         match x with
         | Standard -> 0
-        | Variant -> 1
+        | Variant _ -> 1
 
     let isStandard (x: HumanType) =
         match x with
@@ -226,7 +225,7 @@ module HumanType =
 
     let isVariant (x: HumanType) =
         match x with
-        | Variant -> true
+        | Variant _ -> true
         | _ -> false
 
 module Race =
@@ -559,9 +558,13 @@ module CharacterSheet =
         Optics.lens (fun (data: CharacterSheet) -> data.unmodifiedStats) (fun (value: Stats) (data: CharacterSheet) ->
             { data with unmodifiedStats = value })
 
-    let name_ =
-        Optics.lens (fun (data: CharacterSheet) -> data.name) (fun (value: string) (data: CharacterSheet) ->
-            { data with name = value })
+    let explicitName_ =
+        Optics.lens (fun (data: CharacterSheet) -> data.explicitName) (fun (value: string option) (data: CharacterSheet) ->
+            { data with explicitName = value })
+
+    let autoName_ =
+        Optics.lens (fun (data: CharacterSheet) -> data.autoName) (fun (value: string) (data: CharacterSheet) ->
+            { data with autoName = value })
 
     let sex_ =
         Optics.lens (fun (data: CharacterSheet) -> data.sex) (fun (value: Setting<Sex>) (data: CharacterSheet) ->

@@ -27,11 +27,14 @@ type Setting<'t> =
 and IPatternMatch<'t> =
     abstract member Const: 't -> 't LifecycleStage * 'output list
     abstract member Choice: Setting<'t> list -> 't LifecycleStage * 'output list
+    abstract member ChoiceDistinctN: Setting<'input> list -> int -> 't LifecycleStage * 'output list // where 't = 'input list
     abstract member App1 : Setting<'s -> 't> -> Setting<'s> -> 't LifecycleStage * 'output list
     abstract member App2 : Setting<'s1*'s2 -> 't> -> Setting<'s1> -> Setting<'s2> -> 't LifecycleStage * 'output list
+    abstract member App3 : Setting<'s1*'s2*'s3 -> 't> -> Setting<'s1> -> Setting<'s2> -> Setting<'s3> -> 't LifecycleStage * 'output list
 type Render<'appState, 'output> = 
-    abstract member Render: options:'t1 list -> lens: Optics.Lens<'appState, ChoiceState option> -> 'output list
-and ChoiceState = ChoiceIndex of int
+    abstract member RenderChoice: options:'t1 list -> lens: Optics.Lens<'appState, ChoiceState option> -> 'output list
+    abstract member RenderChoiceDistinctN: options:'t1 list -> n:int -> lens: Optics.Lens<'appState, ChoiceState option> -> 'output list
+and ChoiceState = ChoiceIndex of int | MultichoiceIndex of int list
 and HashCode = int
 
 let compose render children (input: 't LifecycleStage) =
@@ -44,6 +47,10 @@ type SettingChoice<'t>(values: Setting<'t> list) =
     interface Setting<'t> with
         member this.Match m = m.Choice values
     override this.ToString() = values |> List.map (fun v -> v.ToString()) |> fun vs -> System.String.Join(", ", vs) |> sprintf "[%s]"
+type SettingChoiceDistinctN<'t>(values: Setting<'t> list, n: int) =
+    interface Setting<'t list> with
+        member this.Match m = m.ChoiceDistinctN values n
+    override this.ToString() = values |> List.map (fun v -> v.ToString()) |> fun vs -> System.String.Join(", ", vs) |> sprintf "%d of [%s]" n
 // returns a value only once the user has picked a value
 type SettingCtor<'t,'s>(label: string, ctor: Setting<'s -> 't>, arg: Setting<'s>) =
     interface Setting<'t> with
@@ -54,27 +61,48 @@ type SettingCtor2<'t,'s1,'s2>(label: string, ctor: Setting<'s1*'s2 -> 't>, arg1:
     interface Setting<'t> with
         member this.Match m = m.App2 ctor arg1 arg2
     override this.ToString() = label
+type SettingCtor3<'t,'s1,'s2,'s3>(label: string, ctor: Setting<'s1*'s2*'s3 -> 't>, arg1: Setting<'s1>, arg2: Setting<'s2>, arg3: Setting<'s3>) =
+    interface Setting<'t> with
+        member this.Match m = m.App3 ctor arg1 arg2 arg3
+    override this.ToString() = label
 let c v = SettingConst(v) :> Setting<_>
 let choose options = SettingChoice(options) :> Setting<_>
+let chooseDistinct n options = SettingChoiceDistinctN(options, n) :> Setting<_>
 let ctor(label, f, arg)= SettingCtor(label,f,arg) :> Setting<_>
 let ctor2(label, f, arg1, arg2)= SettingCtor2(label, f, arg1, arg2) :> Setting<_>
+let ctor3(label, f, arg1, arg2, arg3)= SettingCtor3(label, f, arg1, arg2, arg3) :> Setting<_>
 let both(arg1, arg2) = ctor2("both", c id, arg1, arg2)
 
 let pmatch (pattern : IPatternMatch<'t>) (x : Setting<'t>) = x.Match pattern
 let rec pattern<'t, 'appState, 'out> (getLens: HashCode -> Optics.Lens<'appState, ChoiceState option>) (render:Render<'appState, 'out>) (state: 'appState) =
-    let assertOutputType x = x :> obj :?> 'output // type system can't prove that 'output and 'out are the same type, so we assert it by casting because it always will be
+    let assertOutputType x = x :> obj :?> 'output // type system can't prove that 'output and 'out are the same type, so we assert it by casting because it always will be true
+    let assertTType x = x :> obj :?> 'output // type system can't prove that 'input list and 't the same type, so we assert it by casting because it always will be true
     {
         new IPatternMatch<'t> with
             member __.Const x = Complete x, []
             member __.Choice options = 
-                let currentIx = state |> read (getLens (options.GetHashCode()))
                 let elements = 
-                    render.Render options (getLens (options.GetHashCode()))
-                let current = currentIx |> Option.map (fun (ChoiceIndex ix) -> options.[ix])
+                    render.RenderChoice options (getLens (options.GetHashCode()))
+                let current = state |> read (getLens (options.GetHashCode())) |> Option.map (function (ChoiceIndex ix) -> options.[ix] | choiceState -> failwithf "Illegal choice: Choice should never have state '%A'" choiceState)
                 match current with
                 | Some (child: Setting<'t>) -> 
                     let (r:'t LifecycleStage), childElements = eval(child, getLens, render, state)
                     r, (assertOutputType elements)@(assertOutputType childElements)
+                | None -> Unset, assertOutputType elements
+            member __.ChoiceDistinctN options n = 
+                let elements = 
+                    render.RenderChoiceDistinctN options n (getLens (options.GetHashCode()))
+                let current = state |> read (getLens (options.GetHashCode())) |> Option.map (function (MultichoiceIndex ixs) -> ixs |> List.map (fun ix -> options.[ix]) | choiceState -> failwithf "Illegal choice: Choice should never have state '%A'" choiceState)
+                match current with
+                | Some (children: Setting<'s> list) -> 
+                    let results, childElements = children |> List.map (fun child -> eval(child, getLens, render, state)) |> List.unzip
+                    let childElements = childElements |> List.collect id
+                    let result = 
+                        if results |> List.every (function Complete _ -> true | _ -> false) && results.Length = n then
+                            results |> List.map (function Complete x -> x | _ -> shouldntHappen()) |> Complete
+                        elif results |> List.every (function Unset -> true | _ -> false) then Unset
+                        else Set
+                    assertTType result, (assertOutputType elements)@(assertOutputType childElements)
                 | None -> Unset, assertOutputType elements
             member __.App1 f arg1 = 
                 match (eval(f, getLens, render, state)), (eval(arg1, getLens, render, state)) with
@@ -90,6 +118,13 @@ let rec pattern<'t, 'appState, 'out> (getLens: HashCode -> Optics.Lens<'appState
                 | (Unset, e1s), _, _ ->
                     Unset, assertOutputType e1s
                 | (_, e1s), (_, e2s), (_, e3s) -> Set, assertOutputType (e1s@e2s@e3s)
+            member __.App3 f arg1 arg2 arg3 =
+                match (eval(f, getLens, render, state)), (eval(arg1, getLens, render, state)), (eval(arg2, getLens, render, state)), (eval(arg3, getLens, render, state)) with
+                | (Complete f, e1s), (Complete arg1, e2s), (Complete arg2, e3s), (Complete arg3, e4s) ->
+                    Complete (f (arg1, arg2, arg3)), assertOutputType (e1s@e2s@e3s@e4s)
+                | (Unset, e1s), _, _, _ ->
+                    Unset, assertOutputType e1s
+                | (_, e1s), (_, e2s), (_, e3s), (_, e4s) -> Set, assertOutputType (e1s@e2s@e3s@e4s)
     }
 
 and eval<'t, 'appState, 'output> (setting : Setting<'t>, getLens: HashCode -> Optics.Lens<'appState, ChoiceState option>, render:Render<'appState, 'output>, state: 'appState) : 't LifecycleStage * 'output list = pmatch (pattern<'t, 'appState, 'output> getLens render state) setting

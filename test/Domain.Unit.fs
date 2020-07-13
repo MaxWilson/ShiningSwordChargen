@@ -31,7 +31,9 @@ module Settings =
             Optics.lens (fun () -> ChoiceIndex 0 |> Some) (fun _ d -> d)
         let render =
             { new Render<unit, unit> with
-                  member this.Render(options: 't1 list) (lens: Optics.Lens<unit,ChoiceState option>): unit list =
+                  member this.RenderChoice(options: 't list) (lens: Optics.Lens<unit,ChoiceState option>): unit list =
+                      []
+                  member this.RenderChoiceDistinctN(options: 't1 list) (n: int) (lens: Optics.Lens<unit,ChoiceState option>): unit list =
                       []
                 }
         features
