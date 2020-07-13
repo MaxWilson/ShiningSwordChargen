@@ -96,7 +96,9 @@ let renderWizard (api: API<'model>) model setting =
                     let currentChoices = match model |> read lens with Some (MultichoiceIndex ixs) -> ixs | _ -> []
                     let toggle ix current =
                         if current |> List.exists ((=) ix) then current |> List.filter ((<>)ix)
+                        elif current.Length = n then current
                         else ix::current
+                    Html.text (sprintf "Choose %d:" n)
                     for ix, o in options |> List.indexed do
                         Html.button [
                             prop.text (o.ToString());
@@ -129,13 +131,19 @@ let view (api: API<_>) (model: 'model) =
             let stats = sheet.unmodifiedStats
             let update t = api.updateCmd (over api.chargen_ t)
             let set (lens: Lens<_,_>) v = api.updateCmd (write (api.chargen_ => lens) (Some v))
-            let wizard = Domain.Chargen.classFeatures (Domain.Chargen.expandClasses [Barbarian, 20])
-            let choice, elements = renderWizard api model wizard.Head
-            match choice with
-            | Unset | Set ->
-                React.fragment elements
-            | Complete _ ->
+            let inline eval prevElements setting =
+                let v, elements = renderWizard api model setting
+                v, elements@prevElements
+            let sexChoice, elements = sheet.sex |> eval []
+            let raceChoice, elements = sheet.race |> eval elements
+            let classFeatures = Domain.Chargen.classFeatures (Domain.Chargen.expandClasses [Barbarian, 20])
+            let classFeatureChoice, elements = classFeatures |> List.fold (fun (accum, elements) setting -> setting |> eval elements |> fun (v, elements) -> v::accum, elements) ([], elements)
+            React.fragment elements
+            // only only to proceed if all settings are set
+            match sexChoice, raceChoice, classFeatureChoice |> List.every (function Complete _ -> true | _ -> false) with
+            | Complete _, Complete _, true ->
                 Html.button [prop.text "OK"]
+            | _ -> ()
         | Some Selecting ->
             let selectFor ix (sheet: Creature) =
                 Html.button [
