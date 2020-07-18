@@ -82,28 +82,34 @@ let renderWizard (api: API<'model>) model setting =
         new AutoWizard.Render<'model, ReactElement> with
         member this.RenderChoice options lens = [
                 Html.div [
-                    let currentChoice = model |> read lens
-                    for ix, o in options |> List.indexed do
-                        Html.button [
-                            prop.text (o.ToString());
-                            prop.style [if Some (ChoiceIndex ix) = currentChoice then style.color.red]
-                            prop.onClick (fun ev -> ev.preventDefault(); api.updateCmd(write lens (ChoiceIndex ix |> Some)))
+                    prop.className "choices"
+                    prop.children [
+                        let currentChoice = model |> read lens
+                        for ix, o in options |> List.indexed do
+                            Html.button [
+                                prop.text (o.ToString());
+                                prop.classes (if Some (ChoiceIndex ix) = currentChoice then ["chosen"; "choice"] else ["choice"])
+                                prop.onClick (fun ev -> ev.preventDefault(); api.updateCmd(write lens (ChoiceIndex ix |> Some)))
+                                ]
                             ]
                         ]
             ]
         member this.RenderChoiceDistinctN options n lens = [
                 Html.div [
-                    let currentChoices = match model |> read lens with Some (MultichoiceIndex ixs) -> ixs | _ -> []
-                    let toggle ix current =
-                        if current |> List.exists ((=) ix) then current |> List.filter ((<>)ix)
-                        elif current.Length = n then current
-                        else ix::current
-                    Html.text (sprintf "Choose %d:" n)
-                    for ix, o in options |> List.indexed do
-                        Html.button [
-                            prop.text (o.ToString());
-                            prop.style [if currentChoices |> List.exists ((=) ix) then style.color.red]
-                            prop.onClick (fun ev -> ev.preventDefault(); api.updateCmd(write lens (MultichoiceIndex (currentChoices |> toggle ix) |> Some)))
+                    prop.className "choices"
+                    prop.children [
+                        let currentChoices = match model |> read lens with Some (MultichoiceIndex ixs) -> ixs | _ -> []
+                        let toggle ix current =
+                            if current |> List.exists ((=) ix) then current |> List.filter ((<>)ix)
+                            elif current.Length = n then current
+                            else ix::current
+                        Html.text (sprintf "Choose %d:" n)
+                        for ix, o in options |> List.indexed do
+                            Html.button [
+                                prop.text (o.ToString());
+                                prop.classes (if currentChoices |> List.exists ((=) ix) then ["chosen"; "choice"] else ["choice"])
+                                prop.onClick (fun ev -> ev.preventDefault(); api.updateCmd(write lens (MultichoiceIndex (currentChoices |> toggle ix) |> Some)))
+                                ]
                             ]
                         ]
             ]

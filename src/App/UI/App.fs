@@ -27,16 +27,14 @@ let view model dispatch =
     | None ->
         try
             Bulma.section [
-                prop.className "content"
+                prop.className "main"
                 prop.children [
-                    Bulma.content [
-                        UI.Chargen.view {
-                                chargen_ = Model.chargen_
-                                roster_ = Model.roster_
-                                currentIndex_ = Model.currentCreatureIndex_
-                                updateCmd = Update >> dispatch
-                            } model
-                        ]
+                    UI.Chargen.view {
+                            chargen_ = Model.chargen_
+                            roster_ = Model.roster_
+                            currentIndex_ = Model.currentCreatureIndex_
+                            updateCmd = Update >> dispatch
+                        } model
                     ]
                 ]
         with | exn ->

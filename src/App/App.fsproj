@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <MyriadSdkGenerator Include="$(MSBuildThisFileDirectory)\..\Myriadic\bin\Debug\netstandard2.1\Myriadic.dll" />
+    <None Include="main.sass" />
     <Compile Include="Domain\Model.fs" />
     <Compile Include="Domain\AutoGen.fs">
       <MyriadFile>Domain\Model.fs</MyriadFile>
