@@ -15,7 +15,7 @@ module NewCharacter =
     type Spec = DetailLevel * (Sex * Name)
 
 type ViewMode = Creating of Draft.CharacterSheet | Selecting | Viewing
-type EditMode = Rearranging | Renaming | AssigningFeats
+type EditMode = Rearranging of Stat | Renaming
 type WizardChoices = Map<HashCode, ChoiceState>
 type State = {
     viewMode: ViewMode option
@@ -93,6 +93,23 @@ let renderWizard (api: API<'model>) model setting =
 
     AutoWizard.eval(setting, getLens, render, model)
 
+let tryEval api model setting =
+    let getLens hashCode =
+        let hash_ =
+            Lens.create
+                (Map.tryFind hashCode)
+                (function None -> Map.remove hashCode | Some v -> Map.add hashCode v)
+        api.chargen_ => wizardChoices_ => hash_
+    let trivialRender =
+        {
+            new AutoWizard.Render<'model, unit> with
+                member this.RenderChoice options lens = []
+                member this.RenderChoiceDistinctN options n lens = []
+        }
+    match AutoWizard.eval(setting, getLens, trivialRender, model) with
+    | Complete v, _ -> Some v
+    | _ -> None
+
 module Stats =
     let currentStats (unmodifiedStats: Stats) _traits = unmodifiedStats
     let view (current: Stats) (unmodified: Stats) =
@@ -109,26 +126,53 @@ module Stats =
             ]
 
 let viewAndEditCharacter (api:API<_>) (model: 'model) (sheet: Draft.CharacterSheet) =
-    React.fragment [
-        let stats = sheet.unmodifiedStats
-        let update t = api.updateCmd (over api.chargen_ t)
-        let set (lens: Lens<_,_>) v = api.updateCmd (write (api.chargen_ => lens) (Some v))
-        let inline eval prevElements setting =
-            let v, elements = renderWizard api model setting
-            v, elements@prevElements
-        let sexChoice, elements = sheet.sex |> eval []
-        let raceChoice, elements = sheet.race |> eval elements
-        let classFeatures = Domain.Chargen.classFeatures (Domain.Chargen.expandClasses [Barbarian, 20])
-        let classFeatureChoice, elements = classFeatures |> List.fold (fun (accum, elements) setting -> setting |> eval elements |> fun (v, elements) -> v::accum, elements) ([], elements)
-        Html.a [prop.className "characterName";defaultArg sheet.explicitName sheet.autoName |> prop.text; prop.onClick (fun _ -> api.updateCmd(writeSome (api.chargen_ => editMode_) Renaming))]
-        Stats.view (Stats.currentStats stats ()) (stats)
-        yield! elements
-        // only only to proceed if all settings are set
-        match sexChoice, raceChoice, classFeatureChoice |> List.every (function Complete _ -> true | _ -> false) with
-        | Complete _, Complete _, true ->
-            Html.button [prop.text "OK"]
-        | _ -> ()
+    Html.div [
+        prop.className "characterView editing"
+        prop.children [
+            let stats = sheet.unmodifiedStats
+            let update t = api.updateCmd (over api.chargen_ t)
+            let set (lens: Lens<_,_>) v = api.updateCmd (write (api.chargen_ => lens) (Some v))
+            let inline eval prevElements setting =
+                let v, elements = renderWizard api model setting
+                v, elements@prevElements
+            let sexChoice, elements = sheet.sex |> eval []
+            let raceChoice, elements = sheet.race |> eval elements
+            let classFeatures = Domain.Chargen.classFeatures (Domain.Chargen.expandClasses [Barbarian, 20])
+            let classFeatureChoice, elements = classFeatures |> List.fold (fun (accum, elements) setting -> setting |> eval elements |> fun (v, elements) -> v::accum, elements) ([], elements)
+            Html.div [prop.className "characterName";defaultArg sheet.explicitName sheet.autoName |> prop.text]
+            Html.button [prop.text "Rename"; prop.onClick (fun _ -> api.updateCmd(writeSome (api.chargen_ => editMode_) Renaming))]
+            Stats.view (Stats.currentStats stats ()) (stats)
+            yield! elements
+            // only only to proceed if all settings are set
+            match sexChoice, raceChoice, classFeatureChoice |> List.every (function Complete _ -> true | _ -> false) with
+            | Complete _, Complete _, true ->
+                Html.button [prop.text "OK"]
+            | _ -> ()
+        ]
     ]
+
+let rename<'model> = React.functionComponent(fun (model, api:API<'model>, sheet:Draft.CharacterSheet) ->
+    Html.form [
+        let name', updateName' = React.useState (thunk (defaultArg sheet.explicitName sheet.autoName))
+        let tryEval = tryEval api model
+        prop.className "simpleDialog"
+        prop.children [
+            Html.span "New name:"
+            Html.input[prop.onChange updateName'; prop.value name'; prop.autoFocus true]
+            Html.button [prop.text "OK"; prop.type'.submit]
+            Html.button [
+                prop.className "separateLine";
+                prop.onClick (fun ev -> ev.preventDefault(); updateName' (Draft.autoName tryEval sheet))
+                prop.text "Autogenerate"
+                ]
+            Html.button [
+                prop.className "separateLine";
+                prop.onClick (fun ev -> ev.preventDefault(); api.updateCmd(write (api.chargen_ => editMode_) None))
+                prop.text "Cancel"
+                ]
+            ]
+        prop.onSubmit(fun ev -> ev.preventDefault(); api.updateCmd(writeSome (api.chargen_ => charSheet_P => CharacterSheet.explicitName_) name' >> write (api.chargen_ => editMode_) None))
+        ])
 
 let view (api: API<_>) (model: 'model) =
     let state = model |> read api.chargen_
@@ -141,7 +185,13 @@ let view (api: API<_>) (model: 'model) =
     React.fragment [
         match model |> read (api.chargen_ => viewMode_) with
         | Some (Creating sheet) ->
-            viewAndEditCharacter api model sheet
+            match state.editMode with
+            | Some Renaming ->
+                rename (model, api, sheet)
+            | Some (Rearranging stat) -> ()
+            | None ->
+                viewAndEditCharacter api model sheet
+                cancel
         | Some Selecting ->
             let selectFor ix (sheet: Creature) =
                 Html.button [
@@ -159,23 +209,7 @@ let view (api: API<_>) (model: 'model) =
             Html.div (sprintf "Viewing character not implemented yet")
             cancel
         | None ->
-            let tryEval setting =
-                let getLens hashCode =
-                    let hash_ =
-                        Lens.create
-                            (Map.tryFind hashCode)
-                            (function None -> Map.remove hashCode | Some v -> Map.add hashCode v)
-                    api.chargen_ => wizardChoices_ => hash_
-                let trivialRender =
-                    {
-                        new AutoWizard.Render<'model, unit> with
-                            member this.RenderChoice options lens = []
-                            member this.RenderChoiceDistinctN options n lens = []
-                    }
-                match AutoWizard.eval(setting, getLens, trivialRender, model) with
-                | Complete v, _ -> Some v
-                | _ -> None
-
+            let tryEval = tryEval api model
             Html.button [
                 prop.onClick (fun _ -> api.updateCmd(writeSome (api.chargen_ => viewMode_) (roll4d6k3() |> Draft.createBlank tryEval |> Creating)))
                 prop.text "Create new character"

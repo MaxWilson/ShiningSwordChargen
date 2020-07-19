@@ -93,6 +93,9 @@ type Operations =
     static member writeSome (lens: Lens<'state,'value option>) : 'value -> 'state -> 'state =
         fun (value:'value) (state: 'state) ->
             Operations.over lens (fun _ -> Some value) state
+    static member writeSome (prism: Prism<'state,'value option>) : 'value -> 'state -> 'state =
+        fun (value:'value) (state: 'state) ->
+            Operations.over prism (fun _ -> Some value) state
     // convenience overloads for parametric-polymorphic lenses
     static member read(lens: unit -> Lens<'state, 'value>): 'state -> 'value =
         Operations.read(lens())

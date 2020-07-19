@@ -94,12 +94,12 @@ module Draft =
             c Halforc
         ]
 
-    let resetAutoName (eval:SettingEvaluator<_>) (draft : Draft.CharacterSheet) =
+    let autoName (eval:SettingEvaluator<_>) (draft : Draft.CharacterSheet) =
         let name =
             match eval(draft.sex) with
             | Some Female -> chooseRandom ["Diana"; "Kiera"; "Kelsey"; "Samantha"; "Alexandra"; "Cleo"; "Berlin"; "Jenny"; "Katherine"]
             | Some Male | _ -> chooseRandom ["Ryan"; "Theodore"; "Sam"; "Alex"; "Max"; "Dante"; "Zorro"; "Vlad"]
-        { draft with autoName = name }
+        name
 
     let createBlank eval stats =
         {
@@ -111,4 +111,4 @@ module Draft =
         xp = 0
         allocatedLevels = []
         classAbilities = []
-        } |> resetAutoName eval
+        } |> fun draft -> { draft with autoName = autoName eval draft }
