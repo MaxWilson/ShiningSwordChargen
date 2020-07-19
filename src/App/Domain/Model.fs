@@ -100,3 +100,5 @@ module Draft =
         allocatedLevels: Class list // advancement priorities, e.g. [Fighter; Fighter; Fighter; Fighter; Rogue; Fighter; Rogue]
         classAbilities: Setting<ClassAbility> list
         }
+        with
+        member this.name = defaultArg this.explicitName this.autoName

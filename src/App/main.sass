@@ -16,11 +16,19 @@
 	.stats
 		font-family: Garamond
 		display: grid
-		grid-template: auto/4em 2em 4em
+		grid-template: auto/4em 2em 4em 8em
 		.statLabel
 			font-weight: bold
+			grid-column: 1
+		.statValue
+			grid-column: 2
 		.statUnmodifiedValue
 			font-style: italic
+			grid-column: 3
+		button.rearrangeStats
+			grid-column: 1/4
+		button.placeStat, button.pickStat
+			grid-column: 4
 
 .simpleDialog
 
