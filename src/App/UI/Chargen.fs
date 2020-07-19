@@ -46,36 +46,6 @@ type 'model API = {
     //doneCmd: 'dispatch -> unit
     }
 
-let viewCharacter (api:API<_>) (name_: Lens<_,string>) sex stats mode model =
-    let name = model |> read name_
-    React.fragment [
-        if mode = Some Renaming then
-            Html.form [
-                prop.children [
-                    Html.div [
-                        prop.style [style.display.flex]
-                        prop.children [
-                            Html.input [prop.value name; prop.onChange (write name_ >> api.updateCmd)]
-                            Html.button [prop.text "OK"; prop.type'.submit]
-                            ]
-                        ]
-                    ]
-                prop.onSubmit (fun ev -> ev.preventDefault(); (write (api.chargen_ => editMode_) None) |> api.updateCmd)
-                ]
-        else
-            Html.div [
-                prop.style [
-                    style.display.flex
-                    ]
-                prop.children [
-                    Html.div (sprintf "%s (%A)" name sex)
-                    Html.button [prop.text "Rename"; prop.onClick (fun _ -> write (api.chargen_ => editMode_) (Some Renaming) |> api.updateCmd); prop.style [style.marginLeft 10]]
-                    ]
-                ]
-        for st in Stat.values do
-            Html.div (sprintf "%s: %d" (Stat.toString st) (stats |> read (Stat.lens st)))
-        ]
-
 let renderWizard (api: API<'model>) model setting =
     let render =
         {
@@ -123,6 +93,43 @@ let renderWizard (api: API<'model>) model setting =
 
     AutoWizard.eval(setting, getLens, render, model)
 
+module Stats =
+    let currentStats (unmodifiedStats: Stats) _traits = unmodifiedStats
+    let view (current: Stats) (unmodified: Stats) =
+        Html.div [
+            prop.className "stats"
+            prop.children [
+                for stat in Stat.values do
+                    let lens = Stat.lenses.[Stat.toTag stat]
+                    let label = Stat.toString stat
+                    Html.span[prop.className "statLabel"; prop.text (sprintf "%s: " label)]
+                    Html.span[prop.className "statValue"; prop.text (current |> read lens)]
+                    Html.span[prop.className "statUnmodifiedValue"; prop.text (unmodified |> read lens |> sprintf "(was %d)")]
+                ]
+            ]
+
+let viewAndEditCharacter (api:API<_>) (model: 'model) (sheet: Draft.CharacterSheet) =
+    React.fragment [
+        let stats = sheet.unmodifiedStats
+        let update t = api.updateCmd (over api.chargen_ t)
+        let set (lens: Lens<_,_>) v = api.updateCmd (write (api.chargen_ => lens) (Some v))
+        let inline eval prevElements setting =
+            let v, elements = renderWizard api model setting
+            v, elements@prevElements
+        let sexChoice, elements = sheet.sex |> eval []
+        let raceChoice, elements = sheet.race |> eval elements
+        let classFeatures = Domain.Chargen.classFeatures (Domain.Chargen.expandClasses [Barbarian, 20])
+        let classFeatureChoice, elements = classFeatures |> List.fold (fun (accum, elements) setting -> setting |> eval elements |> fun (v, elements) -> v::accum, elements) ([], elements)
+        Html.a [prop.className "characterName";defaultArg sheet.explicitName sheet.autoName |> prop.text; prop.onClick (fun _ -> api.updateCmd(writeSome (api.chargen_ => editMode_) Renaming))]
+        Stats.view (Stats.currentStats stats ()) (stats)
+        yield! elements
+        // only only to proceed if all settings are set
+        match sexChoice, raceChoice, classFeatureChoice |> List.every (function Complete _ -> true | _ -> false) with
+        | Complete _, Complete _, true ->
+            Html.button [prop.text "OK"]
+        | _ -> ()
+    ]
+
 let view (api: API<_>) (model: 'model) =
     let state = model |> read api.chargen_
     let cancel =
@@ -134,22 +141,7 @@ let view (api: API<_>) (model: 'model) =
     React.fragment [
         match model |> read (api.chargen_ => viewMode_) with
         | Some (Creating sheet) ->
-            let stats = sheet.unmodifiedStats
-            let update t = api.updateCmd (over api.chargen_ t)
-            let set (lens: Lens<_,_>) v = api.updateCmd (write (api.chargen_ => lens) (Some v))
-            let inline eval prevElements setting =
-                let v, elements = renderWizard api model setting
-                v, elements@prevElements
-            let sexChoice, elements = sheet.sex |> eval []
-            let raceChoice, elements = sheet.race |> eval elements
-            let classFeatures = Domain.Chargen.classFeatures (Domain.Chargen.expandClasses [Barbarian, 20])
-            let classFeatureChoice, elements = classFeatures |> List.fold (fun (accum, elements) setting -> setting |> eval elements |> fun (v, elements) -> v::accum, elements) ([], elements)
-            React.fragment elements
-            // only only to proceed if all settings are set
-            match sexChoice, raceChoice, classFeatureChoice |> List.every (function Complete _ -> true | _ -> false) with
-            | Complete _, Complete _, true ->
-                Html.button [prop.text "OK"]
-            | _ -> ()
+            viewAndEditCharacter api model sheet
         | Some Selecting ->
             let selectFor ix (sheet: Creature) =
                 Html.button [
@@ -164,7 +156,7 @@ let view (api: API<_>) (model: 'model) =
             if ix >= roster.Length then shouldntHappen()
             let sheet = roster |> read (List.nth__ ix => Creature.stats_ => StatSource.charSheet_) |> Option.get
             let sex = sheet.sex
-            viewCharacter api (api.roster_ => List.nth__ (model |> read api.currentIndex_ |> Option.get) => Creature.name_) sex sheet.statBlock.stats state.editMode model
+            Html.div (sprintf "Viewing character not implemented yet")
             cancel
         | None ->
             let tryEval setting =
