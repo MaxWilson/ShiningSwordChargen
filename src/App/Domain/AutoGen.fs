@@ -483,6 +483,40 @@ module ClassAbility =
         match x with
         | Subclass _ -> true
         | _ -> false
+
+module Trait =
+    open Domain.Model.Draft
+
+    let toString (x: Trait) =
+        match x with
+        | Race _ -> "Race"
+        | Class _ -> "Class"
+        | Feat _ -> "Feat"
+
+    let fromString (x: string) =
+        match x with
+        | _ -> None
+
+    let toTag (x: Trait) =
+        match x with
+        | Race _ -> 0
+        | Class _ -> 1
+        | Feat _ -> 2
+
+    let isRace (x: Trait) =
+        match x with
+        | Race _ -> true
+        | _ -> false
+
+    let isClass (x: Trait) =
+        match x with
+        | Class _ -> true
+        | _ -> false
+
+    let isFeat (x: Trait) =
+        match x with
+        | Feat _ -> true
+        | _ -> false
 namespace rec Domain
 
 open AutoWizard
