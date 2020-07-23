@@ -102,7 +102,7 @@ module Draft =
                     c Hill
                 ])
             c Goblin
-            c Halforc
+            alias "Half-orc" Halforc
         ]
 
     let autoName (eval:SettingEvaluator<_>) (draft : Draft.CharacterSheet) =
