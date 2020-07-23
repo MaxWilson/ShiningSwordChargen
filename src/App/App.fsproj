@@ -16,10 +16,11 @@
     <Compile Include="Domain\Common.fs" />
     <Compile Include="Domain\Chargen.fs" />
     <None Include="Domain\Script1.fsx" />
+    <Compile Include="UI\Dialog.fs" />
     <Compile Include="UI\Chargen.fs" />
-    <Compile Include="UI\Types.fs" />
+    <Compile Include="UI\AppModel.fs" />
     <Compile Include="UI\AutoGen.fs">
-      <MyriadFile>UI\Types.fs</MyriadFile>
+      <MyriadFile>UI\AppModel.fs</MyriadFile>
       <MyriadNameSpace>UI</MyriadNameSpace>
     </Compile>
     <Compile Include="UI\App.fs" />

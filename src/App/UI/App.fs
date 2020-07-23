@@ -1,13 +1,14 @@
 ﻿module UI.App
 
-open UI.Types
+open UI.Dialog
+open UI.AppModel
 open Elmish
 open Fable.SimpleHttp
 open Thoth.Json
 open Feliz
-open Feliz.Bulma
+open Optics.Operations
 
-let init _ = { chargen = Chargen.State.fresh; roster = []; error = None; currentCreatureIndex = None }, Cmd.Empty
+let init _ = { chargen = Chargen.State.fresh; roster = []; error = None; currentCreatureIndex = None; modalDialog = None }, Cmd.Empty
 let update msg model =
     match msg with
     | Update t ->
@@ -16,31 +17,50 @@ let update msg model =
         with | exn ->
             { model with error = "Error during update: " + exn.ToString() |> Some }, Cmd.Empty
 
+
+type AppDialog(dispatch) =
+    interface Launcher<Model, ReactElement> with
+        member this.Launch(initial: 'state, factory) =
+            let update = dispatch << Update
+            update(writeSome Model.modalDialog_ (
+                    React.functionComponent(fun () ->
+                        let state, updateState = React.useState(thunk initial)
+                        factory(state, updateState, fun f -> update (f >> write Model.modalDialog_ None)))))
+
+
 let view model dispatch =
     match model.error with
     | Some err ->
-        Bulma.section [
-            Bulma.title.h1 "Something went wrong"
-            Bulma.title.h3 "Catastrophic error"
+        Html.section [
+            Html.h1 "Something went wrong"
+            Html.h3 "Catastrophic error"
             Html.div err
             ]
     | None ->
         try
-            Bulma.section [
-                prop.className "main"
-                prop.children [
-                    UI.Chargen.view {
+            match model.modalDialog with
+            | Some f ->
+                Html.div [
+                    prop.className "modalDialog"
+                    prop.children [f()]
+                    ]
+            | None ->
+                Html.div [
+                    prop.className "main"
+                    prop.children [
+                        UI.Chargen.view {
                             chargen_ = Model.chargen_
                             roster_ = Model.roster_
                             currentIndex_ = Model.currentCreatureIndex_
                             updateCmd = Update >> dispatch
+                            modalDialog = new AppDialog(dispatch)
                         } model
                     ]
                 ]
         with | exn ->
-            Bulma.section [
-                Bulma.title.h1 "Something went wrong"
-                Bulma.title.h3 "Catastrophic error during rendering"
+            Html.div [
+                Html.h1 "Something went wrong"
+                Html.h3 "Catastrophic error during rendering"
                 Html.div (exn.ToString())
                 Html.button [
                     prop.text "Refresh"

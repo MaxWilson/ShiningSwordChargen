@@ -15,14 +15,12 @@ module NewCharacter =
     type Spec = DetailLevel * (Sex * Name)
 
 type ViewMode = Creating of Draft.CharacterSheet | Selecting | Viewing
-type EditMode = Rearranging | Renaming
 type WizardChoices = Map<HashCode, ChoiceState>
 type State = {
     viewMode: ViewMode option
-    editMode: EditMode option
     wizardChoices: WizardChoices
     }
-    with static member fresh = { viewMode = None; editMode = None; wizardChoices = Map.empty }
+    with static member fresh = { viewMode = None; wizardChoices = Map.empty }
 
 let charSheet_P =
     prism (fun (d: State) ->
@@ -34,7 +32,6 @@ let charSheet_P =
             | Some (Creating _) -> { d with viewMode = Some (Creating v) }
             | _ -> d)
 let viewMode_ = lens (fun (d: State) -> d.viewMode) (fun v d -> { d with viewMode = v })
-let editMode_ = lens (fun (d: State) -> d.editMode) (fun v d -> { d with editMode = v })
 let wizardChoices_ = lens (fun (d: State) -> d.wizardChoices) (fun v d -> { d with wizardChoices = v })
 
 type 'model API = {
@@ -43,6 +40,7 @@ type 'model API = {
     currentIndex_: Lens<'model, int option>
     //name: Lens<'model, string>
     updateCmd: ('model -> 'model) -> unit
+    modalDialog: Dialog.Launcher<'model, ReactElement>
     //doneCmd: 'dispatch -> unit
     }
 
@@ -111,7 +109,36 @@ let tryEval api model setting =
     | _ -> None
 
 module Stats =
-    let currentStats (unmodifiedStats: Stats) _traits = unmodifiedStats
+    let currentStats (unmodifiedStats: Stats) _traits = unmodifiedStats // todo: apply mods
+
+    let rearrangeStats (api, unmodifiedStats: Stats) =
+        api.modalDialog.Launch((unmodifiedStats, None), fun ((unmodifiedStats: Stats, srcStat: Stat option), update: _ -> unit, finishWith) ->
+            let current = currentStats unmodifiedStats "placeholder for traits"
+            Html.div [
+                prop.className "stats"
+                prop.children [
+                    for stat in Stat.values do
+                        let lens = Stat.lenses.[Stat.toTag stat]
+                        let label = Stat.toString stat
+                        Html.span[prop.className "statLabel"; prop.text (sprintf "%s: " label)]
+                        Html.span[prop.className "statValue"; prop.text (current |> read lens)]
+                        Html.span[prop.className "statUnmodifiedValue"; prop.text (unmodifiedStats |> read lens |> sprintf "(was %d)")]
+                        match srcStat with
+                        | Some srcStat when srcStat = stat -> ()
+                        | Some srcStat ->
+                            let swap stats src targ =
+                                let srcLens, targLens = Stat.lenses.[Stat.toTag src], Stat.lenses.[Stat.toTag targ]
+                                let srcVal, targVal = (unmodifiedStats |> read srcLens), (unmodifiedStats |> read targLens)
+                                unmodifiedStats |> write srcLens targVal |> write targLens srcVal, None
+                            Html.button[prop.className "placeStat"; prop.text (sprintf "Swap with %s" (Stat.toString srcStat)); prop.onClick(fun _ -> update(swap unmodifiedStats srcStat stat))]
+                        | None ->
+                            Html.button[prop.className "pickStat"; prop.text (sprintf "Select %s" label); prop.onClick(fun _ -> update (unmodifiedStats, Some stat))]
+                    Html.button[prop.className "rearrangeStats"; prop.text (sprintf "OK"); prop.onClick(fun _ -> finishWith (over api.chargen_ (fun chargen -> chargen |> write (charSheet_P => unmodifiedStats_) unmodifiedStats)))]
+                    Html.button[prop.className "rearrangeStats"; prop.text (sprintf "Cancel"); prop.onClick(fun _ -> finishWith id)]
+                    ]
+                ])
+
+
     let view (api:API<_>) (current: Stats) (unmodified: Stats) =
         Html.div [
             prop.className "stats"
@@ -122,71 +149,32 @@ module Stats =
                     Html.span[prop.className "statLabel"; prop.text (sprintf "%s: " label)]
                     Html.span[prop.className "statValue"; prop.text (current |> read lens)]
                     Html.span[prop.className "statUnmodifiedValue"; prop.text (unmodified |> read lens |> sprintf "(was %d)")]
-                Html.button[prop.className "rearrangeStats"; prop.text (sprintf "Rearrange stats"); prop.onClick(fun _ -> api.updateCmd(writeSome (api.chargen_ => editMode_) Rearranging))]
+                Html.button[prop.className "rearrangeStats"; prop.text (sprintf "Rearrange stats"); prop.onClick(fun _ -> rearrangeStats(api, unmodified))]
                 ]
             ]
-    let view_WhileEditing (api:API<_>, current: Stats, unmodified: Stats, src: Stat option, update) =
-        Html.div [
-            prop.className "stats"
+
+let renameDialog (api: API<'model>, model: 'model, sheet: Draft.CharacterSheet)=
+    let tryEval = tryEval api model
+    api.modalDialog.Launch(sheet.name, fun (name': string, updateName': string -> unit, finishWith) ->
+        Html.form [
+            prop.className "simpleDialog"
             prop.children [
-                for stat in Stat.values do
-                    let lens = Stat.lenses.[Stat.toTag stat]
-                    let label = Stat.toString stat
-                    Html.span[prop.className "statLabel"; prop.text (sprintf "%s: " label)]
-                    Html.span[prop.className "statValue"; prop.text (current |> read lens)]
-                    Html.span[prop.className "statUnmodifiedValue"; prop.text (unmodified |> read lens |> sprintf "(was %d)")]
-                    match src with
-                    | Some srcStat when srcStat = stat -> ()
-                    | Some srcStat ->
-                        let swap stats src targ =
-                            let srcLens, targLens = Stat.lenses.[Stat.toTag src], Stat.lenses.[Stat.toTag targ]
-                            let srcVal, targVal = (unmodified |> read srcLens), (unmodified |> read targLens)
-                            unmodified |> write srcLens targVal |> write targLens srcVal, None
-                        Html.button[prop.className "placeStat"; prop.text (sprintf "Swap with %s" (Stat.toString srcStat)); prop.onClick(fun _ -> update(swap unmodified srcStat stat))]
-                    | None ->
-                        Html.button[prop.className "pickStat"; prop.text (sprintf "Select %s" label); prop.onClick(fun _ -> update (unmodified, Some stat))]
-                Html.button[prop.className "rearrangeStats"; prop.text (sprintf "OK"); prop.onClick(fun _ -> api.updateCmd(over api.chargen_ (fun chargen -> chargen |> write (charSheet_P => unmodifiedStats_) unmodified |> write editMode_ None)))]
-                Html.button[prop.className "rearrangeStats"; prop.text (sprintf "Cancel"); prop.onClick(fun _ -> api.updateCmd(write (api.chargen_ => editMode_) None))]
+                Html.span "New name:"
+                Html.input[prop.onChange updateName'; prop.value name'; prop.autoFocus true]
+                Html.button [prop.text "OK"; prop.type'.submit]
+                Html.button [
+                    prop.className "separateLine";
+                    prop.onClick (fun ev -> ev.preventDefault(); updateName' (Draft.autoName tryEval sheet))
+                    prop.text "Autogenerate"
+                    ]
+                Html.button [
+                    prop.className "separateLine";
+                    prop.onClick (fun ev -> ev.preventDefault(); finishWith id)
+                    prop.text "Cancel"
+                    ]
                 ]
-            ]
-
-let rename() = React.functionComponent(fun (model:'model, api:API<'model>, sheet:Draft.CharacterSheet) ->
-    Html.form [
-        let name', updateName' = React.useState (thunk sheet.name)
-        let tryEval = tryEval api model
-        prop.className "simpleDialog"
-        prop.children [
-            Html.span "New name:"
-            Html.input[prop.onChange updateName'; prop.value name'; prop.autoFocus true]
-            Html.button [prop.text "OK"; prop.type'.submit]
-            Html.button [
-                prop.className "separateLine";
-                prop.onClick (fun ev -> ev.preventDefault(); updateName' (Draft.autoName tryEval sheet))
-                prop.text "Autogenerate"
-                ]
-            Html.button [
-                prop.className "separateLine";
-                prop.onClick (fun ev -> ev.preventDefault(); api.updateCmd(write (api.chargen_ => editMode_) None))
-                prop.text "Cancel"
-                ]
-            ]
-        prop.onSubmit(fun ev -> ev.preventDefault(); api.updateCmd(writeSome (api.chargen_ => charSheet_P => CharacterSheet.explicitName_) name' >> write (api.chargen_ => editMode_) None))
-        ])
-
-let rearrange<'model>() = React.functionComponent(fun (model: 'model, api:API<'model>, sheet:Draft.CharacterSheet) ->
-    let (stats, srcStat), update = React.useState (thunk (sheet.unmodifiedStats, None))
-    Html.div [
-        prop.className "characterView"
-        prop.children [
-            Stats.view_WhileEditing(
-                api,
-                Stats.currentStats stats "placeholder for traits",
-                stats,
-                srcStat,
-                update)
-            ]
-        ]
-    )
+            prop.onSubmit(fun ev -> ev.preventDefault(); finishWith(writeSome (api.chargen_ => charSheet_P => CharacterSheet.explicitName_) name'))
+            ])
 
 let viewAndEditCharacter (api:API<_>) (model: 'model) (sheet: Draft.CharacterSheet) =
     Html.div [
@@ -203,7 +191,7 @@ let viewAndEditCharacter (api:API<_>) (model: 'model) (sheet: Draft.CharacterShe
             let classFeatures = Domain.Chargen.classFeatures (Domain.Chargen.expandClasses [Barbarian, 20])
             let classFeatureChoice, elements = classFeatures |> List.fold (fun (accum, elements) setting -> setting |> eval elements |> fun (v, elements) -> v::accum, elements) ([], elements)
             Html.div [prop.className "characterName"; prop.text sheet.name]
-            Html.button [prop.text "Rename"; prop.onClick (fun _ -> api.updateCmd(writeSome (api.chargen_ => editMode_) Renaming))]
+            Html.button [prop.text "Rename"; prop.onClick (fun _ -> renameDialog(api, model, sheet))]
             Stats.view api (Stats.currentStats stats ()) (stats)
             yield! elements
             // only only to proceed if all settings are set
@@ -226,14 +214,8 @@ let view (api: API<_>) (model: 'model) =
     React.fragment [
         match state.viewMode with
         | Some (Creating sheet) ->
-            match state.editMode with
-            | Some Renaming ->
-                rename()(model, api, sheet)
-            | Some Rearranging ->
-                rearrange()(model, api, sheet)
-            | None ->
-                viewAndEditCharacter api model sheet
-                cancel
+            viewAndEditCharacter api model sheet
+            cancel
         | Some Selecting ->
             let selectFor ix (sheet: Creature) =
                 Html.button [

@@ -10,8 +10,12 @@ namespace rec UI
 
 namespace rec UI
 
+open AutoWizard
+open Domain.Model
+open Domain.Model.Character
+
 module Model =
-    open UI.Types
+    open UI.AppModel
 
     let chargen_ =
         Optics.lens (fun (data: Model) -> data.chargen) (fun (value: UI.Chargen.State) (data: Model) ->
@@ -29,3 +33,7 @@ module Model =
         Optics.lens (fun (data: Model) -> data.currentCreatureIndex) (fun (value: int option) (data: Model) ->
             { data with
                   currentCreatureIndex = value })
+
+    let modalDialog_ =
+        Optics.lens (fun (data: Model) -> data.modalDialog) (fun (value: DialogFactory option) (data: Model) ->
+            { data with modalDialog = value })
