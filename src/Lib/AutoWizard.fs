@@ -39,10 +39,13 @@ and HashCode = int
 
 let compose render children (input: 't LifecycleStage) =
     input, [render input]@children
-type SettingConst<'t>(v: 't) =
+type SettingConst<'t>(v: 't, ?label: string) =
     interface Setting<'t> with
         member this.Match m = m.Const v
-    override this.ToString() = sprintf "%A" v
+    override this.ToString() = 
+        match label with
+        | None -> sprintf "%A" v
+        | Some label -> label
 type SettingChoice<'t>(values: Setting<'t> list) =
     interface Setting<'t> with
         member this.Match m = m.Choice values
@@ -66,6 +69,7 @@ type SettingCtor3<'t,'s1,'s2,'s3>(label: string, ctor: Setting<'s1*'s2*'s3 -> 't
         member this.Match m = m.App3 ctor arg1 arg2 arg3
     override this.ToString() = label
 let c v = SettingConst(v) :> Setting<_>
+let alias name v = SettingConst(v, name) :> Setting<_>
 let choose options = SettingChoice(options) :> Setting<_>
 let chooseDistinct n options = SettingChoiceDistinctN(options, n) :> Setting<_>
 let ctor(label, f, arg)= SettingCtor(label,f,arg) :> Setting<_>

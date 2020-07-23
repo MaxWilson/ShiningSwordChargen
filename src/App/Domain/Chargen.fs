@@ -79,7 +79,7 @@ module Draft =
     type SettingEvaluator<'t> = Setting<'t> -> 't option
 
     let chooseFrom lst = lst |> List.map c |> choose
-    let featChoice = chooseFrom [Sharpshooter; CrossbowExpert; HeavyArmorMaster; GreatWeaponMaster]
+    let featChoice = [c Sharpshooter; alias "Crossbow Expert" CrossbowExpert; alias "Heavy Armor Master" HeavyArmorMaster; alias "Great Weapon Master" GreatWeaponMaster] |> choose
     let fightingStyleChoice = chooseFrom [Dueling; Archery; Defense; GreatWeaponFighting]
     let skillChoice = chooseFrom [Athletics; Stealth; Perception; Insight]
     let raceChoice =
@@ -89,6 +89,17 @@ module Draft =
                 choose [
                     c Standard
                     ctor3("Variant", c Variant, skillChoice, featChoice, humanAsi)
+                ])
+            ctor("Elf", c Elf,
+                choose [
+                    alias "High elf" High
+                    alias "Wood elf" Wood
+                    c Drow
+                ])
+            ctor("Dwarf", c Dwarf,
+                choose [
+                    c Mountain
+                    c Hill
                 ])
             c Goblin
             c Halforc
@@ -120,8 +131,7 @@ module Draft =
             match bonuses |> Map.tryFind stat with
             | Some v -> bonuses <- bonuses |> Map.add stat (v + bonus)
             | None -> bonuses <- bonuses |> Map.add stat bonus
-        for tr in traits do
-            match tr with
+        let rec analyze = function
             | Trait.Race race ->
                 match race with
                 | Human(Standard) ->
@@ -129,6 +139,7 @@ module Draft =
                 | Human(Variant(skill, feat, (stat1, stat2))) ->
                     add stat1 1
                     add stat2 1
+                    analyze (Feat feat)
                 | Elf(sub) ->
                     add Dex 2
                     match sub with
@@ -146,7 +157,13 @@ module Draft =
                 | Goblin ->
                     add Dex 2
                     add Con 1
+            | Feat feat ->
+                match feat with
+                | HeavyArmorMaster -> add Str 1
+                | _ -> ()
             | _ -> ()
+        for tr in traits do
+            analyze tr
         [for stat in Stat.values do
             match bonuses |> Map.tryFind stat with
             | Some n -> (stat, n)

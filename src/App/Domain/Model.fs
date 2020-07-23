@@ -106,4 +106,5 @@ module Draft =
     type Trait =
         | Race of Race
         | Class of Class * Subclass option * int
+        | Feat of Feat
         | StatBonus of Stat * int
