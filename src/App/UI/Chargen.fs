@@ -109,11 +109,10 @@ let tryEval api model setting =
     | _ -> None
 
 module Stats =
-    let currentStats (unmodifiedStats: Stats) _traits = unmodifiedStats // todo: apply mods
-
-    let rearrangeStats (api, unmodifiedStats: Stats) =
+    open Chargen.Draft
+    let rearrangeStats (api, unmodifiedStats: Stats, traits) =
         api.modalDialog.Launch((unmodifiedStats, None), fun ((unmodifiedStats: Stats, srcStat: Stat option), update: _ -> unit, finishWith) ->
-            let current = currentStats unmodifiedStats "placeholder for traits"
+            let current = currentStats traits unmodifiedStats
             Html.div [
                 prop.className "stats"
                 prop.children [
@@ -130,7 +129,7 @@ module Stats =
                                 let srcLens, targLens = Stat.lenses.[Stat.toTag src], Stat.lenses.[Stat.toTag targ]
                                 let srcVal, targVal = (unmodifiedStats |> read srcLens), (unmodifiedStats |> read targLens)
                                 unmodifiedStats |> write srcLens targVal |> write targLens srcVal, None
-                            Html.button[prop.className "placeStat"; prop.text (sprintf "Swap with %s" (Stat.toString srcStat)); prop.onClick(fun _ -> update(swap unmodifiedStats srcStat stat))]
+                            Html.button[prop.className "placeStat"; prop.text (sprintf "Swap %s/%s" (Stat.toString srcStat) (Stat.toString stat)); prop.onClick(fun _ -> update(swap unmodifiedStats srcStat stat))]
                         | None ->
                             Html.button[prop.className "pickStat"; prop.text (sprintf "Select %s" label); prop.onClick(fun _ -> update (unmodifiedStats, Some stat))]
                     Html.button[prop.className "rearrangeStats"; prop.text (sprintf "OK"); prop.onClick(fun _ -> finishWith (over api.chargen_ (fun chargen -> chargen |> write (charSheet_P => unmodifiedStats_) unmodifiedStats)))]
@@ -139,7 +138,7 @@ module Stats =
                 ])
 
 
-    let view (api:API<_>) (current: Stats) (unmodified: Stats) =
+    let view (api:API<_>, current: Stats, unmodified: Stats, traits) =
         Html.div [
             prop.className "stats"
             prop.children [
@@ -149,7 +148,7 @@ module Stats =
                     Html.span[prop.className "statLabel"; prop.text (sprintf "%s: " label)]
                     Html.span[prop.className "statValue"; prop.text (current |> read lens)]
                     Html.span[prop.className "statUnmodifiedValue"; prop.text (unmodified |> read lens |> sprintf "(was %d)")]
-                Html.button[prop.className "rearrangeStats"; prop.text (sprintf "Rearrange stats"); prop.onClick(fun _ -> rearrangeStats(api, unmodified))]
+                Html.button[prop.className "rearrangeStats"; prop.text (sprintf "Rearrange stats"); prop.onClick(fun _ -> rearrangeStats(api, unmodified, traits))]
                 ]
             ]
 
@@ -192,7 +191,8 @@ let viewAndEditCharacter (api:API<_>) (model: 'model) (sheet: Draft.CharacterShe
             let classFeatureChoice, elements = classFeatures |> List.fold (fun (accum, elements) setting -> setting |> eval elements |> fun (v, elements) -> v::accum, elements) ([], elements)
             Html.div [prop.className "characterName"; prop.text sheet.name]
             Html.button [prop.text "Rename"; prop.onClick (fun _ -> renameDialog(api, model, sheet))]
-            Stats.view api (Stats.currentStats stats ()) (stats)
+            let statBonuses = Draft.statBonuses [match raceChoice with Complete race -> Draft.Trait.Race race | _ -> ()]
+            Stats.view (api, Draft.currentStats statBonuses stats, stats, statBonuses)
             yield! elements
             // only only to proceed if all settings are set
             match sexChoice, raceChoice, classFeatureChoice |> List.every (function Complete _ -> true | _ -> false) with

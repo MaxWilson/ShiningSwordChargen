@@ -102,3 +102,8 @@ module Draft =
         }
         with
         member this.name = defaultArg this.explicitName this.autoName
+    [<Generator.DuCases>]
+    type Trait =
+        | Race of Race
+        | Class of Class * Subclass option * int
+        | StatBonus of Stat * int

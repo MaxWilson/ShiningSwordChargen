@@ -112,3 +112,46 @@ module Draft =
         allocatedLevels = []
         classAbilities = []
         } |> fun draft -> { draft with autoName = autoName eval draft }
+
+    let statBonuses traits =
+        // locally stateful seems clearer in this case than using Map.fold
+        let mutable bonuses = Map.empty
+        let add stat bonus =
+            match bonuses |> Map.tryFind stat with
+            | Some v -> bonuses <- bonuses |> Map.add stat (v + bonus)
+            | None -> bonuses <- bonuses |> Map.add stat bonus
+        for tr in traits do
+            match tr with
+            | Trait.Race race ->
+                match race with
+                | Human(Standard) ->
+                    Stat.values |> List.iter (flip add 1)
+                | Human(Variant(skill, feat, (stat1, stat2))) ->
+                    add stat1 1
+                    add stat2 1
+                | Elf(sub) ->
+                    add Dex 2
+                    match sub with
+                    | High -> add Int 1
+                    | Wood -> add Wis 1
+                    | Drow -> add Cha 1
+                | Dwarf(sub) ->
+                    add Con 2
+                    match sub with
+                    | Hill -> add Wis 1
+                    | Mountain -> add Str 2
+                | Halforc ->
+                    add Str 2
+                    add Con 1
+                | Goblin ->
+                    add Dex 2
+                    add Con 1
+            | _ -> ()
+        [for stat in Stat.values do
+            match bonuses |> Map.tryFind stat with
+            | Some n -> (stat, n)
+            | None -> ()
+            ]
+
+    let currentStats statBonuses stats =
+        statBonuses |> List.fold (fun stats (stat, n) -> stats |> over (Stat.lens stat) ((+)n)) stats
