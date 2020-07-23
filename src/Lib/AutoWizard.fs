@@ -8,7 +8,7 @@ open Optics
 open Optics.Operations
 
 type 't LifecycleStage = Unset | Set | Complete of 't
-    with static member map f = function Complete v -> Complete (f v) | v -> v
+    with member this.map f = match this with Complete v -> Complete (f v) | Unset -> Unset | Set -> Set
     
 // In general, a Setting<T> is something that may or may not yet yield a T, and if it
 //    isn't currenting yielding a value then it's asking you questions that will eventually
@@ -32,8 +32,8 @@ and IPatternMatch<'t> =
     abstract member App2 : Setting<'s1*'s2 -> 't> -> Setting<'s1> -> Setting<'s2> -> 't LifecycleStage * 'output list
     abstract member App3 : Setting<'s1*'s2*'s3 -> 't> -> Setting<'s1> -> Setting<'s2> -> Setting<'s3> -> 't LifecycleStage * 'output list
 type Render<'appState, 'output> = 
-    abstract member RenderChoice: options:'t1 list -> lens: Optics.Lens<'appState, ChoiceState option> -> 'output list
-    abstract member RenderChoiceDistinctN: options:'t1 list -> n:int -> lens: Optics.Lens<'appState, ChoiceState option> -> 'output list
+    abstract member RenderChoice: state: (unit LifecycleStage) -> options:'t1 list -> lens: Optics.Lens<'appState, ChoiceState option> -> 'output list
+    abstract member RenderChoiceDistinctN: state: (unit LifecycleStage) -> options:'t1 list -> n:int -> lens: Optics.Lens<'appState, ChoiceState option> -> 'output list
 and ChoiceState = ChoiceIndex of int | MultichoiceIndex of int list
 and HashCode = int
 
@@ -81,17 +81,18 @@ let rec pattern<'t, 'appState, 'out> (getLens: HashCode -> Optics.Lens<'appState
         new IPatternMatch<'t> with
             member __.Const x = Complete x, []
             member __.Choice options = 
-                let elements = 
-                    render.RenderChoice options (getLens (options.GetHashCode()))
                 let current = state |> read (getLens (options.GetHashCode())) |> Option.map (function (ChoiceIndex ix) -> options.[ix] | choiceState -> failwithf "Illegal choice: Choice should never have state '%A'" choiceState)
                 match current with
                 | Some (child: Setting<'t>) -> 
                     let (r:'t LifecycleStage), childElements = eval(child, getLens, render, state)
+                    let elements = 
+                        render.RenderChoice (r.map ignore)  options (getLens (options.GetHashCode()))
                     r, (assertOutputType elements)@(assertOutputType childElements)
-                | None -> Unset, assertOutputType elements
+                | None ->
+                    let elements = 
+                        render.RenderChoice Unset options (getLens (options.GetHashCode()))                
+                    Unset, assertOutputType elements
             member __.ChoiceDistinctN options n = 
-                let elements = 
-                    render.RenderChoiceDistinctN options n (getLens (options.GetHashCode()))
                 let current = state |> read (getLens (options.GetHashCode())) |> Option.map (function (MultichoiceIndex ixs) -> ixs |> List.map (fun ix -> options.[ix]) | choiceState -> failwithf "Illegal choice: Choice should never have state '%A'" choiceState)
                 match current with
                 | Some (children: Setting<'s> list) -> 
@@ -102,8 +103,13 @@ let rec pattern<'t, 'appState, 'out> (getLens: HashCode -> Optics.Lens<'appState
                             results |> List.map (function Complete x -> x | _ -> shouldntHappen()) |> Complete
                         elif results |> List.every (function Unset -> true | _ -> false) then Unset
                         else Set
+                    let elements = 
+                        render.RenderChoiceDistinctN (result.map ignore) options n (getLens (options.GetHashCode()))
                     assertTType result, (assertOutputType elements)@(assertOutputType childElements)
-                | None -> Unset, assertOutputType elements
+                | None -> 
+                    let elements = 
+                        render.RenderChoiceDistinctN Unset options n (getLens (options.GetHashCode()))
+                    Unset, assertOutputType elements
             member __.App1 f arg1 = 
                 match (eval(f, getLens, render, state)), (eval(arg1, getLens, render, state)) with
                 | (Complete f, e1s), (Complete x, e2s) ->

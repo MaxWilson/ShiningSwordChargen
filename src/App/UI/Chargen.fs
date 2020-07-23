@@ -48,7 +48,7 @@ let renderWizard (api: API<'model>) model setting =
     let render =
         {
         new AutoWizard.Render<'model, ReactElement> with
-        member this.RenderChoice options lens = [
+        member this.RenderChoice state options lens = [
                 Html.div [
                     prop.className "choices"
                     prop.children [
@@ -56,13 +56,13 @@ let renderWizard (api: API<'model>) model setting =
                         for ix, o in options |> List.indexed do
                             Html.button [
                                 prop.text (o.ToString());
-                                prop.classes (if Some (ChoiceIndex ix) = currentChoice then ["chosen"; "choice"] else ["choice"])
+                                prop.classes (if Some (ChoiceIndex ix) = currentChoice then [if state = Set then "incomplete"]@["chosen"; "choice"] else ["choice"])
                                 prop.onClick (fun ev -> ev.preventDefault(); api.updateCmd(write lens (ChoiceIndex ix |> Some)))
                                 ]
                             ]
                         ]
             ]
-        member this.RenderChoiceDistinctN options n lens = [
+        member this.RenderChoiceDistinctN state options n lens = [
                 Html.div [
                     prop.className "choices"
                     prop.children [
@@ -75,7 +75,7 @@ let renderWizard (api: API<'model>) model setting =
                         for ix, o in options |> List.indexed do
                             Html.button [
                                 prop.text (o.ToString());
-                                prop.classes (if currentChoices |> List.exists ((=) ix) then ["chosen"; "choice"] else ["choice"])
+                                prop.classes (if currentChoices |> List.exists ((=) ix) then [if state = Set then "incomplete"]@["chosen"; "choice"] else ["choice"])
                                 prop.onClick (fun ev -> ev.preventDefault(); api.updateCmd(write lens (MultichoiceIndex (currentChoices |> toggle ix) |> Some)))
                                 ]
                             ]
@@ -101,8 +101,8 @@ let tryEval api model setting =
     let trivialRender =
         {
             new AutoWizard.Render<'model, unit> with
-                member this.RenderChoice options lens = []
-                member this.RenderChoiceDistinctN options n lens = []
+                member this.RenderChoice state options lens = []
+                member this.RenderChoiceDistinctN state options n lens = []
         }
     match AutoWizard.eval(setting, getLens, trivialRender, model) with
     | Complete v, _ -> Some v
