@@ -278,14 +278,19 @@ let view (api: API<_>) (model: 'model) =
 
             cancel
         | Some Selecting ->
-            let roster = model |> read api.roster_
-            let selectFor ix (sheet: Character.CharacterSheet) =
-                Html.button [
-                    prop.text sheet.name
-                    prop.onClick (fun _ -> api.updateCmd(writeSome (api.chargen_ => viewMode_) (Viewing roster.[ix])))
+            Html.div [
+                prop.className "simplePick"
+                let roster = model |> read api.roster_
+                let selectFor ix (sheet: Character.CharacterSheet) =
+                    Html.button [
+                        prop.text sheet.name
+                        prop.onClick (fun _ -> api.updateCmd(writeSome (api.chargen_ => viewMode_) (Viewing roster.[ix])))
+                        ]
+                prop.children [
+                    yield! roster |> List.mapi selectFor
+                    cancel
                     ]
-            yield! roster |> List.mapi selectFor
-            cancel
+                ]
         | Some (Viewing sheet) ->
             viewCharacter api model sheet
             cancel
