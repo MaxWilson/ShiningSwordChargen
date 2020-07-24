@@ -15,7 +15,7 @@ module NewCharacter =
     type Spec = DetailLevel * (Sex * Name)
 
 type ViewMode = Creating of Draft.DraftSheet | Selecting | Viewing of Character.CharacterSheet
-type WizardChoices = Map<HashCode, ChoiceState>
+type WizardChoices = Map<ChoiceKey, ChoiceState>
 type State = {
     viewMode: ViewMode option
     wizardChoices: WizardChoices
@@ -90,13 +90,13 @@ let renderWizard (api: API<'model>) model setting =
 
     AutoWizard.eval(setting, getLens, render, model)
 
-let tryEval api model setting =
+let tryEval (chargen_: Lens<_, State>) model setting =
     let getLens hashCode =
         let hash_ =
             Lens.create
                 (Map.tryFind hashCode)
                 (function None -> Map.remove hashCode | Some v -> Map.add hashCode v)
-        api.chargen_ => wizardChoices_ => hash_
+        chargen_ => wizardChoices_ => hash_
     let trivialRender =
         {
             new AutoWizard.Render<'model, unit> with
@@ -137,7 +137,7 @@ module Stats =
                 ])
 
 
-    let view (api:API<_>, current: Stats, unmodified: Stats, traits) =
+    let view (api:API<_>, current: Stats, unmodified: Stats, traits, readOnly) =
         Html.div [
             prop.className "stats"
             prop.children [
@@ -147,12 +147,13 @@ module Stats =
                     Html.span[prop.className "statLabel"; prop.text (sprintf "%s: " label)]
                     Html.span[prop.className "statValue"; prop.text (current |> read lens)]
                     Html.span[prop.className "statUnmodifiedValue"; prop.text (unmodified |> read lens |> sprintf "(was %d)")]
-                Html.button[prop.className "rearrangeStats"; prop.text (sprintf "Rearrange stats"); prop.onClick(fun _ -> rearrangeStats(api, unmodified, traits))]
+                if not readOnly then
+                    Html.button[prop.className "rearrangeStats"; prop.text (sprintf "Rearrange stats"); prop.onClick(fun _ -> rearrangeStats(api, unmodified, traits))]
                 ]
             ]
 
 let renameDialog (api: API<'model>, model: 'model, sheet: Draft.DraftSheet)=
-    let tryEval = tryEval api model
+    let tryEval = tryEval api.chargen_ model
     api.modalDialog.Launch(sheet.name, fun (name': string, updateName': string -> unit, finishWith) ->
         Html.form [
             prop.className "simpleDialog"
@@ -174,6 +175,43 @@ let renameDialog (api: API<'model>, model: 'model, sheet: Draft.DraftSheet)=
             prop.onSubmit(fun ev -> ev.preventDefault(); finishWith(writeSome (api.chargen_ => charSheet_P => DraftSheet.explicitName_) name'))
             ])
 
+
+let finish (api: API<_>) (sheet: Draft.DraftSheet) model =
+    let arbitrarilyFulfill =
+        let getLens hashCode =
+            // if there's any choices left to take, arbitrarily choose the first one(s)
+            let hash_ =
+                Lens.create
+                    (fun map -> match map |> Map.tryFind hashCode with Some choice -> Some choice | None -> match hashCode with Choice  _ -> Some (ChoiceIndex 0) | Multichoice(_, n) -> Some(MultichoiceIndex [0..(n-1)]))
+                    (function None -> Map.remove hashCode | Some v -> Map.add hashCode v)
+            api.chargen_ => wizardChoices_ => hash_
+        let render =
+            { new Render<'model, unit> with
+                  member this.RenderChoice state (options: 't list) (lens: Optics.Lens<'model,ChoiceState option>): unit list =
+                      []
+                  member this.RenderChoiceDistinctN state (options: 't1 list) (n: int) (lens: Optics.Lens<'model,ChoiceState option>): unit list =
+                      []
+                }
+        fun (setting: Setting<_>) -> match eval(setting, getLens, render, model) with Complete v, _ -> v | _ -> shouldntHappen()
+    let finishedCharacter : Character.CharacterSheet =
+        let race = arbitrarilyFulfill sheet.race
+        {
+            stats =
+                let statBonuses = Draft.statBonuses [Draft.Trait.Race race]
+                Draft.currentStats statBonuses sheet.unmodifiedStats
+            unmodifiedStats = sheet.unmodifiedStats
+            race = race
+            sex = sheet.sex |> arbitrarilyFulfill
+            name = sheet.name
+            xp = 0
+            allocatedLevels = []
+            classAbilities = sheet.classAbilities |> List.map arbitrarilyFulfill
+        }
+    model
+    |> over api.roster_ (fun roster -> finishedCharacter :: roster)
+    |> write (api.chargen_ => viewMode_) None
+    |> write api.chargen_ State.fresh
+
 let viewAndEditCharacter (api:API<_>) (model: 'model) (sheet: Draft.DraftSheet) =
     Html.div [
         prop.className "characterView editing"
@@ -191,12 +229,14 @@ let viewAndEditCharacter (api:API<_>) (model: 'model) (sheet: Draft.DraftSheet) 
             Html.div [prop.className "characterName"; prop.text sheet.name]
             Html.button [prop.text "Rename"; prop.onClick (fun _ -> renameDialog(api, model, sheet))]
             let statBonuses = Draft.statBonuses [match raceChoice with Complete race -> Draft.Trait.Race race | _ -> ()]
-            Stats.view (api, Draft.currentStats statBonuses stats, stats, statBonuses)
+            Stats.view (api, Draft.currentStats statBonuses stats, stats, statBonuses, false)
             yield! elements
             // only only to proceed if all settings are set
             match sexChoice, raceChoice, classFeatureChoice |> List.every (function Complete _ -> true | _ -> false) with
-            | Complete _, Complete _, true ->
-                Html.button [prop.text "OK"]
+            | Complete sex, Complete race, true ->
+                let save model =
+                    model
+                Html.button [prop.text "OK"; prop.onClick(fun  _ -> api.updateCmd(finish api sheet))]
             | _ -> ()
         ]
     ]
@@ -213,7 +253,7 @@ let viewCharacter (api:API<_>) (model: 'model) (sheet: Character.CharacterSheet)
                 ]
             Html.div [prop.className "characterName"; prop.text sheet.name]
             let statBonuses = Draft.statBonuses [Draft.Trait.Race sheet.race]
-            Stats.view (api, Draft.currentStats statBonuses stats, stats, statBonuses)
+            Stats.view (api, Draft.currentStats statBonuses stats, stats, statBonuses, true)
         ]
     ]
 
@@ -230,6 +270,12 @@ let view (api: API<_>) (model: 'model) =
         match state.viewMode with
         | Some (Creating sheet) ->
             viewAndEditCharacter api model sheet
+            let cancel =
+                Html.button [
+                    prop.onClick (fun _ -> api.updateCmd(finish api sheet))
+                    prop.text (match state.viewMode with Some (Creating sheet) -> sprintf "Abandon %s" sheet.name | _ -> "Cancel")
+                    ]
+
             cancel
         | Some Selecting ->
             let roster = model |> read api.roster_
@@ -244,7 +290,7 @@ let view (api: API<_>) (model: 'model) =
             viewCharacter api model sheet
             cancel
         | None ->
-            let tryEval = tryEval api model
+            let tryEval = tryEval api.chargen_ model
             Html.div [
                 prop.className "simplePick"
                 prop.children [

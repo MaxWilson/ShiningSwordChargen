@@ -34,8 +34,8 @@ and IPatternMatch<'t> =
 type Render<'appState, 'output> = 
     abstract member RenderChoice: state: (unit LifecycleStage) -> options:'t1 list -> lens: Optics.Lens<'appState, ChoiceState option> -> 'output list
     abstract member RenderChoiceDistinctN: state: (unit LifecycleStage) -> options:'t1 list -> n:int -> lens: Optics.Lens<'appState, ChoiceState option> -> 'output list
+and ChoiceKey = Choice of hash:int | Multichoice of hash:int * n: int
 and ChoiceState = ChoiceIndex of int | MultichoiceIndex of int list
-and HashCode = int
 
 let compose render children (input: 't LifecycleStage) =
     input, [render input]@children
@@ -78,26 +78,26 @@ let ctor3(label, f, arg1, arg2, arg3)= SettingCtor3(label, f, arg1, arg2, arg3) 
 let both(arg1, arg2) = ctor2("both", c id, arg1, arg2)
 
 let pmatch (pattern : IPatternMatch<'t>) (x : Setting<'t>) = x.Match pattern
-let rec pattern<'t, 'appState, 'out> (getLens: HashCode -> Optics.Lens<'appState, ChoiceState option>) (render:Render<'appState, 'out>) (state: 'appState) =
+let rec pattern<'t, 'appState, 'out> (getLens: ChoiceKey -> Optics.Lens<'appState, ChoiceState option>) (render:Render<'appState, 'out>) (state: 'appState) =
     let assertOutputType x = x :> obj :?> 'output // type system can't prove that 'output and 'out are the same type, so we assert it by casting because it always will be true
     let assertTType x = x :> obj :?> 'output // type system can't prove that 'input list and 't the same type, so we assert it by casting because it always will be true
     {
         new IPatternMatch<'t> with
             member __.Const x = Complete x, []
             member __.Choice options = 
-                let current = state |> read (getLens (options.GetHashCode())) |> Option.map (function (ChoiceIndex ix) -> options.[ix] | choiceState -> failwithf "Illegal choice: Choice should never have state '%A'" choiceState)
+                let current = state |> read (getLens (options.GetHashCode() |> Choice)) |> Option.map (function (ChoiceIndex ix) -> options.[ix] | choiceState -> failwithf "Illegal choice: Choice should never have state '%A'" choiceState)
                 match current with
                 | Some (child: Setting<'t>) -> 
                     let (r:'t LifecycleStage), childElements = eval(child, getLens, render, state)
                     let elements = 
-                        render.RenderChoice (r.map ignore)  options (getLens (options.GetHashCode()))
+                        render.RenderChoice (r.map ignore)  options (getLens (options.GetHashCode() |> Choice))
                     r, (assertOutputType elements)@(assertOutputType childElements)
                 | None ->
                     let elements = 
-                        render.RenderChoice Unset options (getLens (options.GetHashCode()))                
+                        render.RenderChoice Unset options (getLens (options.GetHashCode() |> Choice))                
                     Unset, assertOutputType elements
             member __.ChoiceDistinctN options n = 
-                let current = state |> read (getLens (options.GetHashCode())) |> Option.map (function (MultichoiceIndex ixs) -> ixs |> List.map (fun ix -> options.[ix]) | choiceState -> failwithf "Illegal choice: Choice should never have state '%A'" choiceState)
+                let current = state |> read (getLens (Multichoice(options.GetHashCode(), n))) |> Option.map (function (MultichoiceIndex ixs) -> ixs |> List.map (fun ix -> options.[ix]) | choiceState -> failwithf "Illegal choice: Choice should never have state '%A'" choiceState)
                 match current with
                 | Some (children: Setting<'s> list) -> 
                     let results, childElements = children |> List.map (fun child -> eval(child, getLens, render, state)) |> List.unzip
@@ -108,11 +108,11 @@ let rec pattern<'t, 'appState, 'out> (getLens: HashCode -> Optics.Lens<'appState
                         elif results |> List.every (function Unset -> true | _ -> false) then Unset
                         else Set
                     let elements = 
-                        render.RenderChoiceDistinctN (result.map ignore) options n (getLens (options.GetHashCode()))
+                        render.RenderChoiceDistinctN (result.map ignore) options n (getLens (Multichoice(options.GetHashCode(), n)))
                     assertTType result, (assertOutputType elements)@(assertOutputType childElements)
                 | None -> 
                     let elements = 
-                        render.RenderChoiceDistinctN Unset options n (getLens (options.GetHashCode()))
+                        render.RenderChoiceDistinctN Unset options n (getLens (Multichoice(options.GetHashCode(), n)))
                     Unset, assertOutputType elements
             member __.App1 f arg1 = 
                 match (eval(f, getLens, render, state)), (eval(arg1, getLens, render, state)) with
@@ -137,4 +137,4 @@ let rec pattern<'t, 'appState, 'out> (getLens: HashCode -> Optics.Lens<'appState
                 | (_, e1s), (_, e2s), (_, e3s), (_, e4s) -> Set, assertOutputType (e1s@e2s@e3s@e4s)
     }
 
-and eval<'t, 'appState, 'output> (setting : Setting<'t>, getLens: HashCode -> Optics.Lens<'appState, ChoiceState option>, render:Render<'appState, 'output>, state: 'appState) : 't LifecycleStage * 'output list = pmatch (pattern<'t, 'appState, 'output> getLens render state) setting
+and eval<'t, 'appState, 'output> (setting : Setting<'t>, getLens: ChoiceKey -> Optics.Lens<'appState, ChoiceState option>, render:Render<'appState, 'output>, state: 'appState) : 't LifecycleStage * 'output list = pmatch (pattern<'t, 'appState, 'output> getLens render state) setting
