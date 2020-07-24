@@ -61,6 +61,19 @@ module Character =
         | Indomitable of int
         | Subclass of Subclass
 
+    [<Generator.Lenses>]
+    type CharacterSheet = {
+        stats: Stats
+        unmodifiedStats: Stats
+        name: string
+        sex: Sex
+        race: Race
+        xp: int
+        allocatedLevels: Class list // advancement priorities, e.g. [Fighter; Fighter; Fighter; Fighter; Rogue; Fighter; Rogue]
+        classAbilities: ClassAbility list
+        }
+
+
 open Character
 
 [<Generator.Lenses>]
@@ -90,7 +103,7 @@ type Creature = {
 
 module Draft =
     [<Generator.Lenses>]
-    type CharacterSheet = {
+    type DraftSheet = {
         unmodifiedStats: Stats
         explicitName: string option
         autoName: string
@@ -107,3 +120,5 @@ module Draft =
         | Race of Race
         | Class of Class * Subclass option * int
         | Feat of Feat
+        | ASI of Stat * int
+        | Skill of Skill

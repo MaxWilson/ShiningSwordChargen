@@ -492,6 +492,8 @@ module Trait =
         | Race _ -> "Race"
         | Class _ -> "Class"
         | Feat _ -> "Feat"
+        | ASI _ -> "ASI"
+        | Skill _ -> "Skill"
 
     let fromString (x: string) =
         match x with
@@ -502,6 +504,8 @@ module Trait =
         | Race _ -> 0
         | Class _ -> 1
         | Feat _ -> 2
+        | ASI _ -> 3
+        | Skill _ -> 4
 
     let isRace (x: Trait) =
         match x with
@@ -516,6 +520,16 @@ module Trait =
     let isFeat (x: Trait) =
         match x with
         | Feat _ -> true
+        | _ -> false
+
+    let isASI (x: Trait) =
+        match x with
+        | ASI _ -> true
+        | _ -> false
+
+    let isSkill (x: Trait) =
+        match x with
+        | Skill _ -> true
         | _ -> false
 namespace rec Domain
 
@@ -543,6 +557,41 @@ module Stats =
 
     let cha_ =
         Optics.lens (fun (data: Stats) -> data.cha) (fun (value: int) (data: Stats) -> { data with cha = value })
+
+module CharacterSheet =
+    open Domain.Model.Character
+
+    let stats_ =
+        Optics.lens (fun (data: CharacterSheet) -> data.stats) (fun (value: Stats) (data: CharacterSheet) ->
+            { data with stats = value })
+
+    let unmodifiedStats_ =
+        Optics.lens (fun (data: CharacterSheet) -> data.unmodifiedStats) (fun (value: Stats) (data: CharacterSheet) ->
+            { data with unmodifiedStats = value })
+
+    let name_ =
+        Optics.lens (fun (data: CharacterSheet) -> data.name) (fun (value: string) (data: CharacterSheet) ->
+            { data with name = value })
+
+    let sex_ =
+        Optics.lens (fun (data: CharacterSheet) -> data.sex) (fun (value: Sex) (data: CharacterSheet) ->
+            { data with sex = value })
+
+    let race_ =
+        Optics.lens (fun (data: CharacterSheet) -> data.race) (fun (value: Race) (data: CharacterSheet) ->
+            { data with race = value })
+
+    let xp_ =
+        Optics.lens (fun (data: CharacterSheet) -> data.xp) (fun (value: int) (data: CharacterSheet) ->
+            { data with xp = value })
+
+    let allocatedLevels_ =
+        Optics.lens (fun (data: CharacterSheet) -> data.allocatedLevels) (fun (value: Class list) (data: CharacterSheet) ->
+            { data with allocatedLevels = value })
+
+    let classAbilities_ =
+        Optics.lens (fun (data: CharacterSheet) -> data.classAbilities) (fun (value: ClassAbility list) (data: CharacterSheet) ->
+            { data with classAbilities = value })
 
 module StatBlock =
     open Domain.Model
@@ -585,37 +634,36 @@ module Creature =
         Optics.lens (fun (data: Creature) -> data.stats) (fun (value: StatSource) (data: Creature) ->
             { data with stats = value })
 
-module CharacterSheet =
+module DraftSheet =
     open Domain.Model.Draft
 
     let unmodifiedStats_ =
-        Optics.lens (fun (data: CharacterSheet) -> data.unmodifiedStats) (fun (value: Stats) (data: CharacterSheet) ->
+        Optics.lens (fun (data: DraftSheet) -> data.unmodifiedStats) (fun (value: Stats) (data: DraftSheet) ->
             { data with unmodifiedStats = value })
 
     let explicitName_ =
-        Optics.lens (fun (data: CharacterSheet) -> data.explicitName) (fun (value: string option) (data: CharacterSheet) ->
+        Optics.lens (fun (data: DraftSheet) -> data.explicitName) (fun (value: string option) (data: DraftSheet) ->
             { data with explicitName = value })
 
     let autoName_ =
-        Optics.lens (fun (data: CharacterSheet) -> data.autoName) (fun (value: string) (data: CharacterSheet) ->
+        Optics.lens (fun (data: DraftSheet) -> data.autoName) (fun (value: string) (data: DraftSheet) ->
             { data with autoName = value })
 
     let sex_ =
-        Optics.lens (fun (data: CharacterSheet) -> data.sex) (fun (value: Setting<Sex>) (data: CharacterSheet) ->
+        Optics.lens (fun (data: DraftSheet) -> data.sex) (fun (value: Setting<Sex>) (data: DraftSheet) ->
             { data with sex = value })
 
     let race_ =
-        Optics.lens (fun (data: CharacterSheet) -> data.race) (fun (value: Setting<Race>) (data: CharacterSheet) ->
+        Optics.lens (fun (data: DraftSheet) -> data.race) (fun (value: Setting<Race>) (data: DraftSheet) ->
             { data with race = value })
 
     let xp_ =
-        Optics.lens (fun (data: CharacterSheet) -> data.xp) (fun (value: int) (data: CharacterSheet) ->
-            { data with xp = value })
+        Optics.lens (fun (data: DraftSheet) -> data.xp) (fun (value: int) (data: DraftSheet) -> { data with xp = value })
 
     let allocatedLevels_ =
-        Optics.lens (fun (data: CharacterSheet) -> data.allocatedLevels) (fun (value: Class list) (data: CharacterSheet) ->
+        Optics.lens (fun (data: DraftSheet) -> data.allocatedLevels) (fun (value: Class list) (data: DraftSheet) ->
             { data with allocatedLevels = value })
 
     let classAbilities_ =
-        Optics.lens (fun (data: CharacterSheet) -> data.classAbilities) (fun (value: Setting<ClassAbility> list) (data: CharacterSheet) ->
+        Optics.lens (fun (data: DraftSheet) -> data.classAbilities) (fun (value: Setting<ClassAbility> list) (data: DraftSheet) ->
             { data with classAbilities = value })

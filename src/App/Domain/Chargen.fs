@@ -105,7 +105,7 @@ module Draft =
             alias "Half-orc" Halforc
         ]
 
-    let autoName (eval:SettingEvaluator<_>) (draft : Draft.CharacterSheet) =
+    let autoName (eval:SettingEvaluator<_>) (draft : Draft.DraftSheet) =
         let name =
             match eval(draft.sex) with
             | Some Female -> chooseRandom ["Diana"; "Kiera"; "Kelsey"; "Samantha"; "Alexandra"; "Cleo"; "Berlin"; "Jenny"; "Katherine"]
@@ -114,7 +114,7 @@ module Draft =
 
     let createBlank eval stats =
         {
-        Draft.CharacterSheet.unmodifiedStats = stats
+        Draft.DraftSheet.unmodifiedStats = stats
         explicitName = None
         autoName = "Unnamed"
         sex = choose [c Male; c Female; c Neither]
@@ -172,3 +172,4 @@ module Draft =
 
     let currentStats statBonuses stats =
         statBonuses |> List.fold (fun stats (stat, n) -> stats |> over (Stat.lens stat) ((+)n)) stats
+

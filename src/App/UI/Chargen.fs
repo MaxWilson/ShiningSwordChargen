@@ -14,7 +14,7 @@ module NewCharacter =
     type Name = string
     type Spec = DetailLevel * (Sex * Name)
 
-type ViewMode = Creating of Draft.CharacterSheet | Selecting | Viewing
+type ViewMode = Creating of Draft.DraftSheet | Selecting | Viewing of Character.CharacterSheet
 type WizardChoices = Map<HashCode, ChoiceState>
 type State = {
     viewMode: ViewMode option
@@ -36,8 +36,7 @@ let wizardChoices_ = lens (fun (d: State) -> d.wizardChoices) (fun v d -> { d wi
 
 type 'model API = {
     chargen_: Lens<'model, State>
-    roster_: Lens<'model, Creature list>
-    currentIndex_: Lens<'model, int option>
+    roster_: Lens<'model, Character.CharacterSheet list>
     //name: Lens<'model, string>
     updateCmd: ('model -> 'model) -> unit
     modalDialog: Dialog.Launcher<'model, ReactElement>
@@ -132,7 +131,7 @@ module Stats =
                             Html.button[prop.className "placeStat"; prop.text (sprintf "Swap %s/%s" (Stat.toString srcStat) (Stat.toString stat)); prop.onClick(fun _ -> update(swap unmodifiedStats srcStat stat))]
                         | None ->
                             Html.button[prop.className "pickStat"; prop.text (sprintf "Select %s" label); prop.onClick(fun _ -> update (unmodifiedStats, Some stat))]
-                    Html.button[prop.className "rearrangeStats"; prop.text (sprintf "OK"); prop.onClick(fun _ -> finishWith (over api.chargen_ (fun chargen -> chargen |> write (charSheet_P => unmodifiedStats_) unmodifiedStats)))]
+                    Html.button[prop.className "rearrangeStats"; prop.text (sprintf "OK"); prop.onClick(fun _ -> finishWith (over api.chargen_ (fun chargen -> chargen |> write (charSheet_P => DraftSheet.unmodifiedStats_) unmodifiedStats)))]
                     Html.button[prop.className "rearrangeStats"; prop.text (sprintf "Cancel"); prop.onClick(fun _ -> finishWith id)]
                     ]
                 ])
@@ -152,7 +151,7 @@ module Stats =
                 ]
             ]
 
-let renameDialog (api: API<'model>, model: 'model, sheet: Draft.CharacterSheet)=
+let renameDialog (api: API<'model>, model: 'model, sheet: Draft.DraftSheet)=
     let tryEval = tryEval api model
     api.modalDialog.Launch(sheet.name, fun (name': string, updateName': string -> unit, finishWith) ->
         Html.form [
@@ -172,10 +171,10 @@ let renameDialog (api: API<'model>, model: 'model, sheet: Draft.CharacterSheet)=
                     prop.text "Cancel"
                     ]
                 ]
-            prop.onSubmit(fun ev -> ev.preventDefault(); finishWith(writeSome (api.chargen_ => charSheet_P => CharacterSheet.explicitName_) name'))
+            prop.onSubmit(fun ev -> ev.preventDefault(); finishWith(writeSome (api.chargen_ => charSheet_P => DraftSheet.explicitName_) name'))
             ])
 
-let viewAndEditCharacter (api:API<_>) (model: 'model) (sheet: Draft.CharacterSheet) =
+let viewAndEditCharacter (api:API<_>) (model: 'model) (sheet: Draft.DraftSheet) =
     Html.div [
         prop.className "characterView editing"
         prop.children [
@@ -202,6 +201,22 @@ let viewAndEditCharacter (api:API<_>) (model: 'model) (sheet: Draft.CharacterShe
         ]
     ]
 
+let viewCharacter (api:API<_>) (model: 'model) (sheet: Character.CharacterSheet) =
+    Html.div [
+        prop.className "characterView editing"
+        prop.children [
+            let stats = sheet.unmodifiedStats
+            let update t = api.updateCmd (over api.chargen_ t)
+            let set (lens: Lens<_,_>) v = api.updateCmd (write (api.chargen_ => lens) (Some v))
+            Html.div [
+                prop.text (sprintf "%A %A" sheet.sex sheet.race)
+                ]
+            Html.div [prop.className "characterName"; prop.text sheet.name]
+            let statBonuses = Draft.statBonuses [Draft.Trait.Race sheet.race]
+            Stats.view (api, Draft.currentStats statBonuses stats, stats, statBonuses)
+        ]
+    ]
+
 
 let view (api: API<_>) (model: 'model) =
     let state = model |> read api.chargen_
@@ -217,29 +232,30 @@ let view (api: API<_>) (model: 'model) =
             viewAndEditCharacter api model sheet
             cancel
         | Some Selecting ->
-            let selectFor ix (sheet: Creature) =
+            let roster = model |> read api.roster_
+            let selectFor ix (sheet: Character.CharacterSheet) =
                 Html.button [
-                    prop.onClick (fun _ -> api.updateCmd(writeSome api.currentIndex_ ix >> writeSome (api.chargen_ => viewMode_) Viewing))
                     prop.text sheet.name
+                    prop.onClick (fun _ -> api.updateCmd(writeSome (api.chargen_ => viewMode_) (Viewing roster.[ix])))
                     ]
-            yield! model |> read api.roster_ |> List.mapi selectFor
+            yield! roster |> List.mapi selectFor
             cancel
-        | Some Viewing ->
-            let ix = model |> read api.currentIndex_ |> Option.get
-            let roster = (model |> read api.roster_)
-            if ix >= roster.Length then shouldntHappen()
-            let sheet = roster |> read (List.nth__ ix => Creature.stats_ => StatSource.charSheet_) |> Option.get
-            let sex = sheet.sex
-            Html.div (sprintf "Viewing character not implemented yet")
+        | Some (Viewing sheet) ->
+            viewCharacter api model sheet
             cancel
         | None ->
             let tryEval = tryEval api model
-            Html.button [
-                prop.onClick (fun _ -> api.updateCmd(writeSome (api.chargen_ => viewMode_) (roll4d6k3() |> Draft.createBlank tryEval |> Creating)))
-                prop.text "Create new character"
+            Html.div [
+                prop.className "simplePick"
+                prop.children [
+                    Html.button [
+                        prop.onClick (fun _ -> api.updateCmd(writeSome (api.chargen_ => viewMode_) (roll4d6k3() |> Draft.createBlank tryEval |> Creating)))
+                        prop.text "Create new character"
+                        ]
+                    Html.button [
+                        prop.onClick (fun _ -> api.updateCmd(writeSome (api.chargen_ => viewMode_) Selecting))
+                        prop.text "Resume with existing"
+                        ]
                 ]
-            Html.button [
-                prop.onClick (fun _ -> api.updateCmd(writeSome (api.chargen_ => viewMode_) Selecting))
-                prop.text "Resume with existing"
-                ]
+            ]
         ]

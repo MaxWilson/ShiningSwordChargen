@@ -7,9 +7,8 @@ type DialogFactory = unit -> ReactElement
 [<Generator.Lenses>]
 type Model = {
     chargen: UI.Chargen.State
-    roster: Domain.Model.Creature list
+    roster: Domain.Model.Character.CharacterSheet list
     error: string option
-    currentCreatureIndex: int option
     modalDialog: DialogFactory option
     }
 

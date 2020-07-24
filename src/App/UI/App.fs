@@ -8,7 +8,7 @@ open Thoth.Json
 open Feliz
 open Optics.Operations
 
-let init _ = { chargen = Chargen.State.fresh; roster = []; error = None; currentCreatureIndex = None; modalDialog = None }, Cmd.Empty
+let init _ = { chargen = Chargen.State.fresh; roster = []; error = None; modalDialog = None }, Cmd.Empty
 let update msg model =
     match msg with
     | Update t ->
@@ -51,7 +51,6 @@ let view model dispatch =
                         UI.Chargen.view {
                             chargen_ = Model.chargen_
                             roster_ = Model.roster_
-                            currentIndex_ = Model.currentCreatureIndex_
                             updateCmd = Update >> dispatch
                             modalDialog = new AppDialog(dispatch)
                         } model
@@ -64,6 +63,6 @@ let view model dispatch =
                 Html.div (exn.ToString())
                 Html.button [
                     prop.text "Refresh"
-                    prop.onClick (fun _ -> Update (Optics.Operations.over Model.currentCreatureIndex_ (Option.map (fun ix -> ix + 1 % (model.roster.Length)))) |> dispatch)
+                    prop.onClick (fun _ -> Update id |> dispatch)
                     ]
                 ]

@@ -22,17 +22,12 @@ module Model =
             { data with chargen = value })
 
     let roster_ =
-        Optics.lens (fun (data: Model) -> data.roster) (fun (value: Domain.Model.Creature list) (data: Model) ->
+        Optics.lens (fun (data: Model) -> data.roster) (fun (value: Domain.Model.Character.CharacterSheet list) (data: Model) ->
             { data with roster = value })
 
     let error_ =
         Optics.lens (fun (data: Model) -> data.error) (fun (value: string option) (data: Model) ->
             { data with error = value })
-
-    let currentCreatureIndex_ =
-        Optics.lens (fun (data: Model) -> data.currentCreatureIndex) (fun (value: int option) (data: Model) ->
-            { data with
-                  currentCreatureIndex = value })
 
     let modalDialog_ =
         Optics.lens (fun (data: Model) -> data.modalDialog) (fun (value: DialogFactory option) (data: Model) ->
