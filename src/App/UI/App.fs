@@ -1,6 +1,6 @@
 ﻿module UI.App
 
-open UI.Dialog
+open UI.Components
 open UI.AppModel
 open Elmish
 open Fable.SimpleHttp

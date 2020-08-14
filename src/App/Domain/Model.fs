@@ -70,6 +70,7 @@ module Character =
         race: Race
         xp: int
         allocatedLevels: Class list // advancement priorities, e.g. [Fighter; Fighter; Fighter; Fighter; Rogue; Fighter; Rogue]
+        subclasses: Map<Class, Subclass>
         classAbilities: ClassAbility list
         }
 
@@ -111,6 +112,7 @@ module Draft =
         race: Setting<Race>
         xp: int
         allocatedLevels: Class list // advancement priorities, e.g. [Fighter; Fighter; Fighter; Fighter; Rogue; Fighter; Rogue]
+        subclasses: Map<Class, Subclass>
         classAbilities: Setting<ClassAbility> list
         }
         with

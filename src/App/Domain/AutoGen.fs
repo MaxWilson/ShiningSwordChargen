@@ -589,6 +589,10 @@ module CharacterSheet =
         Optics.lens (fun (data: CharacterSheet) -> data.allocatedLevels) (fun (value: Class list) (data: CharacterSheet) ->
             { data with allocatedLevels = value })
 
+    let subclasses_ =
+        Optics.lens (fun (data: CharacterSheet) -> data.subclasses) (fun (value: Map<Class, Subclass>) (data: CharacterSheet) ->
+            { data with subclasses = value })
+
     let classAbilities_ =
         Optics.lens (fun (data: CharacterSheet) -> data.classAbilities) (fun (value: ClassAbility list) (data: CharacterSheet) ->
             { data with classAbilities = value })
@@ -663,6 +667,10 @@ module DraftSheet =
     let allocatedLevels_ =
         Optics.lens (fun (data: DraftSheet) -> data.allocatedLevels) (fun (value: Class list) (data: DraftSheet) ->
             { data with allocatedLevels = value })
+
+    let subclasses_ =
+        Optics.lens (fun (data: DraftSheet) -> data.subclasses) (fun (value: Map<Class, Subclass>) (data: DraftSheet) ->
+            { data with subclasses = value })
 
     let classAbilities_ =
         Optics.lens (fun (data: DraftSheet) -> data.classAbilities) (fun (value: Setting<ClassAbility> list) (data: DraftSheet) ->

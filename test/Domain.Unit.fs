@@ -8,6 +8,7 @@ open Domain
 open Domain.Model
 open Domain.Model.Character
 open Domain.Chargen
+open Domain.Chargen.Character
 
 // map lvl onto 1-20 inclusive, and ignore as invalid any entries that are not increasing
 let normalizeLevels (spec: (Class * int) list) =

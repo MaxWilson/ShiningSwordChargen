@@ -39,7 +39,7 @@ type 'model API = {
     roster_: Lens<'model, Character.CharacterSheet list>
     //name: Lens<'model, string>
     updateCmd: ('model -> 'model) -> unit
-    modalDialog: Dialog.Launcher<'model, ReactElement>
+    modalDialog: Components.Launcher<'model, ReactElement>
     //doneCmd: 'dispatch -> unit
     }
 
@@ -205,6 +205,7 @@ let finish (api: API<_>) (sheet: Draft.DraftSheet) model =
             name = sheet.name
             xp = 0
             allocatedLevels = []
+            subclasses = sheet.subclasses
             classAbilities = sheet.classAbilities |> List.map arbitrarilyFulfill
         }
     model
@@ -212,7 +213,7 @@ let finish (api: API<_>) (sheet: Draft.DraftSheet) model =
     |> write (api.chargen_ => viewMode_) None
     |> write api.chargen_ State.fresh
 
-let viewAndEditCharacter (api:API<_>) (model: 'model) (sheet: Draft.DraftSheet) =
+let viewAndEditCharacter (api:API<_>) (model: 'model) (sheet: Draft.DraftSheet) cancelButton =
     Html.div [
         prop.className "characterView editing"
         prop.children [
@@ -224,7 +225,7 @@ let viewAndEditCharacter (api:API<_>) (model: 'model) (sheet: Draft.DraftSheet) 
                 v, elements@prevElements
             let sexChoice, elements = sheet.sex |> eval []
             let raceChoice, elements = sheet.race |> eval elements
-            let classFeatures = Domain.Chargen.classFeatures (Domain.Chargen.expandClasses [Barbarian, 20])
+            let classFeatures = Domain.Chargen.classFeatures sheet.allocatedLevels
             let classFeatureChoice, elements = classFeatures |> List.fold (fun (accum, elements) setting -> setting |> eval elements |> fun (v, elements) -> v::accum, elements) ([], elements)
             Html.div [prop.className "characterName"; prop.text sheet.name]
             Html.button [prop.text "Rename"; prop.onClick (fun _ -> renameDialog(api, model, sheet))]
@@ -236,8 +237,11 @@ let viewAndEditCharacter (api:API<_>) (model: 'model) (sheet: Draft.DraftSheet) 
             | Complete sex, Complete race, true ->
                 let save model =
                     model
-                Html.button [prop.text "OK"; prop.onClick(fun  _ -> api.updateCmd(finish api sheet))]
-            | _ -> ()
+                Components.buttons [
+                    Html.button [prop.text "OK"; prop.onClick(fun  _ -> api.updateCmd(finish api sheet))]
+                    cancelButton
+                    ]
+            | _ -> cancelButton
         ]
     ]
 
@@ -269,14 +273,12 @@ let view (api: API<_>) (model: 'model) =
     React.fragment [
         match state.viewMode with
         | Some (Creating sheet) ->
-            viewAndEditCharacter api model sheet
             let cancel =
                 Html.button [
                     prop.onClick (fun _ -> api.updateCmd(finish api sheet))
                     prop.text (match state.viewMode with Some (Creating sheet) -> sprintf "Abandon %s" sheet.name | _ -> "Cancel")
                     ]
-
-            cancel
+            viewAndEditCharacter api model sheet cancel
         | Some Selecting ->
             Html.div [
                 prop.className "simplePick"

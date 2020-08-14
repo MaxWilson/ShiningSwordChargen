@@ -24,35 +24,36 @@ let standardArray() =
   let statsInOrder = [| 15; 14; 13; 12; 10; 8 |] |> Array.sortDescending |> Array.mapi (fun i v -> write lenses.[i] v)
   statsInOrder |> Array.fold (fun s t -> t s) { str = 0; dex = 0; con = 0; int = 0; wis = 0; cha = 0 }
 
-let subclasses = function
-    | Fighter, n when n >= 3 -> [Champion; EldritchKnight; Samurai]
-    | Monk, n when n >= 3 -> [FourElements]
-    | Rogue, n when n >= 3 -> [Swashbuckler]
-    | _ -> []
+module Character =
+    let subclasses = function
+        | Fighter, n when n >= 3 -> [Champion; EldritchKnight; Samurai]
+        | Monk, n when n >= 3 -> [FourElements]
+        | Rogue, n when n >= 3 -> [Swashbuckler]
+        | _ -> []
 
-let expandClasses (classLevels: (Class * int) list) : Class list =
-    let rec add alreadySeen accumulator = function
-        | [] -> accumulator
-        | (charClass, level)::rest ->
-            let newLevels =
-                match alreadySeen |> Map.tryFind charClass with
-                | Some n -> List.replicate (max 0 (level - n)) charClass
-                | None -> List.replicate (max 0 level) charClass
-            add (alreadySeen |> Map.add charClass level) (accumulator@newLevels) rest
-    add Map.empty [] classLevels
+    let expandClasses (classLevels: (Class * int) list) : Class list =
+        let rec add alreadySeen accumulator = function
+            | [] -> accumulator
+            | (charClass, level)::rest ->
+                let newLevels =
+                    match alreadySeen |> Map.tryFind charClass with
+                    | Some n -> List.replicate (max 0 (level - n)) charClass
+                    | None -> List.replicate (max 0 level) charClass
+                add (alreadySeen |> Map.add charClass level) (accumulator@newLevels) rest
+        add Map.empty [] classLevels
 
-let compactClasses (classes: Class list) : (Class * int) list =
-    let rec add classes = function
-        | [] ->
-            classes |> List.rev
-        | cl::rest ->
-            match classes with
-            | (h,lvl)::lrest when h = cl ->
-                rest |> add ((h, lvl+1)::lrest)
-            | _ ->
-                let lvl = classes |> List.tryPick (function (h,lvl) when h = cl -> Some lvl | _ -> None)
-                rest |> add ((cl, match lvl with Some lvl -> lvl + 1 | None -> 1)::classes)
-    add [] classes
+    let compactClasses (classes: Class list) : (Class * int) list =
+        let rec add classes = function
+            | [] ->
+                classes |> List.rev
+            | cl::rest ->
+                match classes with
+                | (h,lvl)::lrest when h = cl ->
+                    rest |> add ((h, lvl+1)::lrest)
+                | _ ->
+                    let lvl = classes |> List.tryPick (function (h,lvl) when h = cl -> Some lvl | _ -> None)
+                    rest |> add ((cl, match lvl with Some lvl -> lvl + 1 | None -> 1)::classes)
+        add [] classes
 
 let classFeatures (classes: Class list) =
     [for (charClass, lvl) in classes |> List.groupBy id |> List.map(fun (c,g) -> c, g.Length) do
@@ -127,6 +128,7 @@ module Draft =
         race = raceChoice
         xp = 0
         allocatedLevels = []
+        subclasses = Map.empty
         classAbilities = []
         } |> fun draft -> { draft with autoName = autoName eval draft }
 
@@ -180,10 +182,10 @@ module Draft =
         statBonuses |> List.fold (fun stats (stat, n) -> stats |> over (Stat.lens stat) ((+)n)) stats
 
     let subclassOptions classLevels =
-        classLevels 
-        |> compactClasses
-        |> List.map (fun (cl, lvl) -> 
-                        match subclasses (cl, lvl) with
-                        | [] -> c (cl, None)
-                        | subs -> subs |> List.map (fun sub -> alias (sub.ToString()) (cl, Some sub)) |> choose
-                        )
+        classLevels
+        |> Character.compactClasses
+        |> List.map (fun (cl, lvl) ->
+            match Character.subclasses (cl, lvl) with
+            | [] -> c (cl, None)
+            | subs -> subs |> List.map (fun sub -> alias (sub.ToString()) (cl, Some sub)) |> choose
+            )
