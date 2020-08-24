@@ -24,6 +24,12 @@ let standardArray() =
   let statsInOrder = [| 15; 14; 13; 12; 10; 8 |] |> Array.sortDescending |> Array.mapi (fun i v -> write lenses.[i] v)
   statsInOrder |> Array.fold (fun s t -> t s) { str = 0; dex = 0; con = 0; int = 0; wis = 0; cha = 0 }
 
+let subclasses = function
+    | Fighter, n when n >= 3 -> [Champion; EldritchKnight; Samurai]
+    | Monk, n when n >= 3 -> [FourElements]
+    | Rogue, n when n >= 3 -> [Swashbuckler]
+    | _ -> []
+
 let expandClasses (classLevels: (Class * int) list) : Class list =
     let rec add alreadySeen accumulator = function
         | [] -> accumulator
@@ -173,3 +179,11 @@ module Draft =
     let currentStats statBonuses stats =
         statBonuses |> List.fold (fun stats (stat, n) -> stats |> over (Stat.lens stat) ((+)n)) stats
 
+    let subclassOptions classLevels =
+        classLevels 
+        |> compactClasses
+        |> List.map (fun (cl, lvl) -> 
+                        match subclasses (cl, lvl) with
+                        | [] -> c (cl, None)
+                        | subs -> subs |> List.map (fun sub -> alias (sub.ToString()) (cl, Some sub)) |> choose
+                        )
